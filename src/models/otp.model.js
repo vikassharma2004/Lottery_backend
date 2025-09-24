@@ -1,0 +1,29 @@
+import mongoose from "mongoose";
+
+const otpSchema = new mongoose.Schema(
+  {
+    userId: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "User",
+      required: false  // optional now
+    },
+
+    email: { 
+      type: String, 
+      required: function() { return !this.userId; }, // require email if userId not present
+      lowercase: true,
+      trim: true
+    },
+
+    otp: { type: String, required: true },
+
+    expiresAt: { 
+      type: Date, 
+      required: true,
+      index: { expires: 0 }  // TTL index auto-deletes expired OTPs
+    }
+  },
+  { timestamps: true }
+);
+
+export const Otp = mongoose.model("Otp", otpSchema);
