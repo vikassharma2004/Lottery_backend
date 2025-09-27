@@ -3,40 +3,37 @@ import crypto from "crypto";
 import { Payment } from "../models/payment.model.js";
 import { User } from "../models/User.model.js";
 import { AppError } from "../middleware/ErrorHandler.js";
-
-// Initialize Razorpay
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_SECRET,
-});
+import { razorpayInstance as razorpay } from "../config/razorpayConfig.js";
+import { configDotenv } from "dotenv";
+configDotenv({path:"../../.env"})
+// export const razorpayInstance = new Razorpay({
+//   key_id: process.env.RAZORPAY_KEY_ID,
+//   key_secret: process.env.RAZORPAY_KEY_SECRET
+// });
 
 // ------------------- Create Razorpay Order -------------------
-export const createRazorpayOrder = async (userId, amount) => {
-  const user = await User.findById(userId);
-  if (!user) throw new AppError("User not found", 404);
+export const createRazorpayOrderService = async ({ userId, amount, currency = "INR" }) => {
+  const amountInPaise = amount * 100; // Razorpay expects paise
 
-  const options = {
-    amount: amount * 100, // convert to paise
-    currency: "INR",
-    receipt: `receipt_${Date.now()}`,
-  };
+  // Create order in Razorpay
+  const order = await razorpay.orders.create({
+    amount: amountInPaise,
+    currency,
+    receipt: `rcpt_${Date.now()}`,
+    payment_capture: 1, // auto-capture
+  });
 
-  const order = await razorpay.orders.create(options);
-
-  // Save order in DB
+  console.log(order);
+  // Save order in Payment collection
   const payment = await Payment.create({
     userId,
     amount,
-    currency: "INR",
+    currency,
     razorpayOrderId: order.id,
     status: "pending",
   });
 
-  return {
-    orderId: order.id,
-    amount,
-    currency: "INR",
-  };
+  return { order, payment ,razorpayKeyId:process.env.RAZORPAY_KEY_ID};
 };
 
 // ------------------- Verify Razorpay Payment -------------------

@@ -5,42 +5,43 @@ import bcrypt from "bcryptjs";
 const userSchema = new mongoose.Schema({
 
 
-  email: { 
-    type: String, 
-    required: true, 
-    unique: true, 
-    lowercase: true, 
-    trim: true 
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true
   },
 
-  phone: { 
-    type: String,  
-    unique: true, 
-    match: /^[0-9]{10}$/ 
+  phone: {
+    type: String,
+    unique: true,
+    match: /^[0-9]{10}$/
   },
 
-  password: { 
+  password: {
     type: String,
     required: true,
     minLength: 6,
   },
 
-  referralCode: { 
-    type: String, 
+  referralCode: {
+    type: String,
     unique: true,
-    sparse: true ,
-    default:""
+    sparse: true,
+    default: ""
   },
-userRole: {
-  type: String,
-  enum: ["user", "admin"], // only allows "user" or "admin"
-  default: "user",
-  required: true,
-}
-,
+  userRole: {
+    type: String,
+    enum: ["user", "admin"], // only allows "user" or "admin"
+    default: "user",
+    required: true,
+  }
+  ,
 
   referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-
+  referralCount: { type: Number, default: 0 },    // total signups using this user's code
+  successfulReferrals: { type: Number, default: 0 }, // total who also made payment
   walletBalance: { type: Number, default: 0, min: 0 },
 
   isVerified: { type: Boolean, default: false },
@@ -52,9 +53,13 @@ userRole: {
   isSuspended: { type: Boolean, default: false },
 
 }, { timestamps: true });
+userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ hasPaid: 1 });
+userSchema.index({ referralCode: 1 })
+
 
 // Hash password before save
-userSchema.pre("save", async function(next) {
+userSchema.pre("save", async function (next) {
   if (this.isModified("password") && this.password) {
     this.password = await bcrypt.hash(this.password, 10);
   }
@@ -64,4 +69,4 @@ userSchema.pre("save", async function(next) {
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
-export const User=mongoose.model("User", userSchema);
+export const User = mongoose.model("User", userSchema);

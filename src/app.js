@@ -5,8 +5,12 @@ import helmet from "helmet";
 import compression from "compression";
 import AuthRouter from "./routes/authRoutes.js";
 import OtpRouter from "./routes/otpRoutes.js";
+import AdminRouter from "./routes/admin.route.js";
+import ReportRouter from "./routes/report.route.js";
+import analyticsRouter from "./routes/analyticsrouter.js";
 import { errorHandler } from "./middleware/ErrorHandler.js";
 import cookieParser from "cookie-parser";
+import PaymentRouter from "./routes/paymentRoutes.js";
 
 // Initialize app
 const app = express();
@@ -25,6 +29,10 @@ app.get("/health", (req, res) => {
 });
 app.use("/api/auth",AuthRouter)
 app.use("/api/otp",OtpRouter)
+app.use("/api/admin",AdminRouter)
+app.use("/api/report",ReportRouter)
+app.use("/api/analytics",analyticsRouter)
+app.use("/api/payment",PaymentRouter)
 app.use(errorHandler)
 // 404 handler
 app.use((req, res) => {

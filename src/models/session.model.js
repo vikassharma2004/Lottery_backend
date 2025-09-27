@@ -14,5 +14,5 @@ const sessionSchema = new mongoose.Schema({
 
 // TTL index — MongoDB will automatically delete expired sessions
 sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-
+sessionSchema.index({userId: 1, jwtToken: 1,valid: 1});
 export const Session = mongoose.model("Session", sessionSchema);
