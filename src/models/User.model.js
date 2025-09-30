@@ -15,9 +15,11 @@ const userSchema = new mongoose.Schema({
 
   phone: {
     type: String,
-    unique: true,
-    match: /^[0-9]{10}$/
-  },
+    match: /^[0-9]{10}$/, // validate format
+    default: undefined      // optional
+  }
+
+  ,
 
   password: {
     type: String,
@@ -25,12 +27,13 @@ const userSchema = new mongoose.Schema({
     minLength: 6,
   },
 
-  referralCode: {
-    type: String,
-    unique: true,
-    sparse: true,
-    default: ""
-  },
+ referralCode: {
+  type: String,
+  unique: true,
+  sparse: true,
+  default: undefined
+}
+,
   userRole: {
     type: String,
     enum: ["user", "admin"], // only allows "user" or "admin"
@@ -55,7 +58,9 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ hasPaid: 1 });
-userSchema.index({ referralCode: 1 })
+userSchema.index({ referralCode: 1 }, { unique: true, sparse: true });
+
+
 
 
 // Hash password before save

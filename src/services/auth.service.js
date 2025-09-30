@@ -9,6 +9,7 @@ import crypto from "crypto";
 import { Otp } from "../models/otp.model.js";
 import { sendEmail } from "../config/nodemailer.config.js";
 import { Session } from "../models/session.model.js";
+import mongoose from "mongoose";
 
 
 export const loginService = async ({ email, password, deviceName, platform, timezone }) => {
@@ -83,76 +84,102 @@ export const loginService = async ({ email, password, deviceName, platform, time
 
 
 
-export const RegisterService = async ({ email, phone, password, referralCode }) => {
-    // Check if user already exists
-    let user = await User.findOne({ email });
 
-    if (user && user.isVerified) {
-        throw new AppError("Account already exists", 409);
+export const RegisterService = async ({ email, password, referralCode }) => {
+  // Start a session
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // Check if user already exists (inside session)
+    let user = await User.findOne({ email }).session(session);
+
+    if (user || user.isVerified) {
+      throw new AppError("Account already exists", 409);
     }
 
     if (!user) {
-        // Create new temporary user
-        user = await User.create({ email, phone, password, isVerified: false });
-        // Assign referrer if referral code is provided
-        if (referralCode) {
-            const referrer = await User.findOne({ referralCode });
-            if (!referrer.hasPaid) {
-                throw new AppError("Referrer has not paid ", 404);
-            }
-            if (referrer) user.referredBy = referrer._id;
+      // Create new temporary user
+      user = await User.create(
+        [
+          { email, password, isVerified: false }
+        ],
+        { session } // make creation part of transaction
+      );
+      user = user[0]; // create returns an array when using array syntax
+
+      // Assign referrer if referral code is provided
+      if (referralCode) {
+        const referrer = await User.findOne({ referralCode }).session(session);
+        if (!referrer) {
+          throw new AppError("Invalid referral code", 404);
         }
-        await user.save();
+        if (!referrer.hasPaid) {
+          throw new AppError("Referrer has not paid", 400);
+        }
+        user.referredBy = referrer._id;
+        await user.save({ session });
+      }
     }
 
     // Delete all existing OTPs for this email
-    await Otp.deleteMany({ email });
+    await Otp.deleteMany({ email }).session(session);
 
     // Generate new OTP
     const otpCode = generateOTP(6);
 
     // Save OTP to DB
-    const otp = await Otp.create({
-        email,
-        otp: otpCode,
-        userId: user._id,
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes expiry
-    });
+    await Otp.create(
+      [
+        {
+          email,
+          otp: otpCode,
+          userId: user._id,
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        }
+      ],
+      { session }
+    );
 
-    // TODO: send OTP via email/SMS
+    // Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    // Send OTP email **outside transaction**
     console.log(`OTP for ${email}: ${otpCode}`);
     await sendEmail({
-        to: email,
-        subject: "OTP Verification - Valid for 5 Minutes",
-        html: `
-    <!DOCTYPE html>
-    <html>
-      <body>
-        <h2>Email Verification</h2>
-        <p>Hello,</p>
-        <p>
-          Please use the following One-Time Password (OTP) to verify your email
-          address. This code is <b>valid for only 5 minutes</b>.
-        </p>
-
-        <h1>${otpCode}</h1>
-
-        <p>
-          If you did not request this verification, please ignore this email.
-        </p>
-        <br/>
-        <p>Thank you,<br/>The YourAppName Team</p>
-        <hr/>
-        <p style="font-size:12px; color:gray;">
-          © ${new Date().getFullYear()} Lottery. All rights reserved.
-        </p>
-      </body>
-    </html>
-  `,
+      to: email,
+      subject: "OTP Verification - Valid for 5 Minutes",
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <body>
+            <h2>Email Verification</h2>
+            <p>Hello,</p>
+            <p>
+              Please use the following One-Time Password (OTP) to verify your email
+              address. This code is <b>valid for only 5 minutes</b>.
+            </p>
+            <h1>${otpCode}</h1>
+            <p>If you did not request this verification, please ignore this email.</p>
+            <br/>
+            <p>Thank you,<br/>The YourAppName Team</p>
+            <hr/>
+            <p style="font-size:12px; color:gray;">
+              © ${new Date().getFullYear()} Lottery. All rights reserved.
+            </p>
+          </body>
+        </html>
+      `,
     });
 
-
-    return
+    return { success: true, message: "OTP sent successfully" };
+  } catch (error) {
+    // Abort transaction on error
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
+  }
 };
 
 export const getProfile = async (userId) => {

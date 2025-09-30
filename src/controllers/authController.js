@@ -5,20 +5,21 @@ import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { userValidationSchema } from "../validations/user.validation.js";
 import { AppError } from "../middleware/ErrorHandler.js";
 export const Login = catchAsyncError(async (req, res, next) => {
-    const { email, password ,deviceInfo} = req.body;
+    const { email, password ,deviceInfo} = req.body ||{};
 
-    if (!email || !password || req.body == "undefined") {
+    if (!email || !password || req.body == "undefined" || !email.trim() || !password.trim()) {
         return next(new AppError("Please enter email and password", 400));
     }
 
      const { deviceName, platform, timezone } = deviceInfo || {};
     const { token, user } = await loginService({ email, password, deviceName, platform, timezone });
     
-    await setTokenCookie(res, token);
+    // await setTokenCookie(res, token);
 
     res.status(StatusCodes.OK).json({
         message: "Logged in successfully",
         user,
+        token
     });
 });
 
@@ -35,8 +36,8 @@ export const Register = catchAsyncError(async (req, res, next) => {
         });
     }
     // 2. If valid, extract sanitized values
-    const { email, phone, password, referralCode } = value;
-    await RegisterService({ email, phone, password, referralCode });
+    const { email,  password, referralCode } = value;
+    await RegisterService({ email,  password, referralCode });
     return res.status(StatusCodes.CREATED).json({ message: "Account Created verify email" })
 })
 export const Logout = catchAsyncError(async (req, res, next) => {
