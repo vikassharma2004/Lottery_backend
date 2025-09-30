@@ -35,3 +35,18 @@ cron.schedule('0 1 * * *', async () => {
   }
 });
 
+// Cron job to ping the server every 14 minute
+// s
+cron.schedule("*/14 * * * *", async () => {
+  // cron.schedule("* * * * *", async () => { // every minute
+  try {
+    const response = await fetch('https://lottery-backend-1-a0sy.onrender.com/health');
+    if (response.ok) {
+      console.log("Ping successful:", new Date().toLocaleString());
+    } else {
+      console.log("Ping failed with status:", response.status);
+    }
+  } catch (err) {
+    console.error("Error pinging server:", err.message);
+  }
+});
