@@ -3,25 +3,31 @@ import { StatusCodes } from "http-status-codes";
 import { AppError } from "./ErrorHandler.js";
 import { User } from "../models/User.model.js";
 import { Session } from "../models/session.model.js";
-console.log(process.env.JWT_SECRET);
+// console.log(process.env.JWT_SECRET);
 export const isAuthenticated = async (req, res, next) => {
   try {
-    // 1. Get token from cookie or Authorization header
+    // 1️⃣ Get token from cookies or Authorization header
     let token = null;
 
-    if (req.cookies && req.cookies.token) {
-      token = req.cookies.token; // if you’re storing in cookies
+    if (req.cookies?.token) {
+      token = req.cookies.token;
+    } else if (req.headers.authorization?.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1]; // <-- fixed extraction
     }
-
 
     if (!token) {
-      return next(new AppError("Session Expired", StatusCodes.UNAUTHORIZED));
+      return next(new AppError("Session expired. Please login.", StatusCodes.UNAUTHORIZED));
     }
 
-    // 2. Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // 2️⃣ Verify token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return next(new AppError("Invalid or expired token.", StatusCodes.UNAUTHORIZED));
+    }
 
-    // 3. Fetch user and attach to request
+    // 3️⃣ Fetch user from DB
     const user = await User.findById(decoded.id).select("-password");
     if (!user) {
       return next(new AppError("User not found.", StatusCodes.UNAUTHORIZED));
@@ -31,6 +37,7 @@ export const isAuthenticated = async (req, res, next) => {
       return next(new AppError("Account suspended. Contact support.", StatusCodes.FORBIDDEN));
     }
 
+    // 4️⃣ Attach user info to request
     req.user = {
       userId: user._id,
       email: user.email,
@@ -38,9 +45,10 @@ export const isAuthenticated = async (req, res, next) => {
       isVerified: user.isVerified,
       isSuspended: user.isSuspended,
     };
+
     next();
   } catch (err) {
-    return next(new AppError("Invalid or expired token.", StatusCodes.UNAUTHORIZED));
+    next(new AppError("Authentication failed.", StatusCodes.UNAUTHORIZED));
   }
 };
 export const adminSessionMiddleware = async (req, res, next) => {

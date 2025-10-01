@@ -1,7 +1,9 @@
 import { User } from "../models/User.model.js";
 import { Otp } from "../models/otp.model.js";
 import { AppError } from "../middleware/ErrorHandler.js";
-export const OtpService = async (email) => {
+import { sendEmail } from "../config/nodemailer.config.js";
+import { generateOTP } from "../utils/otp.js";
+export const CreateOtpService = async (email) => {
 
   // Delete all existing OTPs for this email
   await Otp.deleteMany({ email });
@@ -18,8 +20,33 @@ export const OtpService = async (email) => {
 
   // TODO: Send OTP via email/SMS
   console.log(`OTP for ${email}: ${otpCode}`);
+    await sendEmail({
+        to: email,
+        subject: "OTP Verification - Valid for 5 Minutes",
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <body>
+              <h2>Email Verification</h2>
+              <p>Hello,</p>
+              <p>
+                Please use the following One-Time Password (OTP) to verify your email
+                address. This code is <b>valid for only 5 minutes</b>.
+              </p>
+              <h1>${otpCode}</h1>
+              <p>If you did not request this verification, please ignore this email.</p>
+              <br/>
+              <p>Thank you,<br/>The YourAppName Team</p>
+              <hr/>
+              <p style="font-size:12px; color:gray;">
+                © ${new Date().getFullYear()} Lottery. All rights reserved.
+              </p>
+            </body>
+          </html>
+        `,
+      });
 
-  return otp;
+  return {message:"otp send sucessfully"}
 };
 export const VerifyOtpService = async ({ email, otpCode }) => {
   const otpRecord = await Otp.findOne({ email, otp: otpCode });
@@ -30,7 +57,7 @@ export const VerifyOtpService = async ({ email, otpCode }) => {
   // Mark user as verified
   const user = await User.findById(otpRecord.userId);
   if (!user) throw new AppError("User not found", 404);
-
+ 
   user.isVerified = true;
   await user.save();
 

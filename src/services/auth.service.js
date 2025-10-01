@@ -93,8 +93,7 @@ export const RegisterService = async ({ email, password, referralCode }) => {
   try {
     // Check if user already exists (inside session)
     let user = await User.findOne({ email }).session(session);
-
-    if (user || user.isVerified) {
+    if (user) {
       throw new AppError("Account already exists", 409);
     }
 

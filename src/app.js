@@ -11,6 +11,7 @@ import analyticsRouter from "./routes/analyticsrouter.js";
 import { errorHandler } from "./middleware/ErrorHandler.js";
 import cookieParser from "cookie-parser";
 import PaymentRouter from "./routes/paymentRoutes.js";
+import WithdrawRouter from "./routes/withdraw.route.js";
 
 // Initialize app
 const app = express();
@@ -27,12 +28,16 @@ app.use(cookieParser());
 app.get("/health", (req, res) => {
   res.status(200).json({ message: "Server is healthy" });
 });
+app.get("/",(req,res)=>{
+  res.status(200).json({ message: "Server is healthy" });
+})
 app.use("/api/auth",AuthRouter)
 app.use("/api/otp",OtpRouter)
 app.use("/api/admin",AdminRouter)
 app.use("/api/report",ReportRouter)
 app.use("/api/analytics",analyticsRouter)
 app.use("/api/payment",PaymentRouter)
+app.use("/api/payment",WithdrawRouter)
 app.use(errorHandler)
 // 404 handler
 app.use((req, res) => {

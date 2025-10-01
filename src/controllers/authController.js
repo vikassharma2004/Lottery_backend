@@ -77,3 +77,8 @@ export const GetProfile = catchAsyncError(async (req, res, next) => {
     const { user } = await getProfile(userId);
     return res.status(StatusCodes.OK).json({ user })
 })
+
+export const verifytoken=catchAsyncError(async (req, res, next) => {
+    const { token } = req.params;
+    return res.status(StatusCodes.OK).json({ message })
+})
