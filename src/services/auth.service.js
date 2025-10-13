@@ -10,7 +10,6 @@ import { Otp } from "../models/otp.model.js";
 import { sendEmail } from "../config/nodemailer.config.js";
 import { Session } from "../models/session.model.js";
 import mongoose from "mongoose";
-import { emailQueue } from "../config/queue.js";
 
 
 export const loginService = async ({ email, password, deviceName, platform, timezone }) => {
@@ -43,50 +42,33 @@ export const loginService = async ({ email, password, deviceName, platform, time
     });
 
     await session.save();
-    console.log(session);
-    console.log("Session created successfully");
-    // Queue the email
-    await emailQueue.add("sendVerification", {
-      email,
-      type: "adminLogin",
-      payload: {
-        deviceName,
-        platform,
-        timezone,
-        loginTime: session.createdAt,
-        userEmail: user.email,
-      },
+    await sendEmail({
+      to: email,
+      subject: "New Admin Login Detected",
+      html: `
+        <!DOCTYPE html>
+        <html>
+            <body>
+                <h2>New Login Detected</h2>
+                <p>Hello, ${user.email}</p>
+                <p>A new login to your admin account was detected. Here are the details:</p>
+                <ul>
+                    <li><b>Device Name:</b> ${deviceName}</li>
+                    <li><b>Platform:</b> ${platform}</li>
+                    <li><b>Timezone:</b> ${timezone}</li>
+                    <li><b>Login Time:</b> ${session.createdAt}</li>
+                </ul>
+                <p>If this was you, you can safely ignore this message. Otherwise, please revoke your sessions immediately.</p>
+                <hr/>
+                <p style="font-size:12px; color:gray;">
+                    © ${new Date().getFullYear()} YourAppName. All rights reserved.
+                </p>
+            </body>
+        </html>
+        `
     });
-    console.log("Email queued successfully");
-
-    // await sendEmail({
-    //   to: email,
-    //   subject: "New Admin Login Detected",
-    //   html: `
-    //     <!DOCTYPE html>
-    //     <html>
-    //         <body>
-    //             <h2>New Login Detected</h2>
-    //             <p>Hello, ${user.email}</p>
-    //             <p>A new login to your admin account was detected. Here are the details:</p>
-    //             <ul>
-    //                 <li><b>Device Name:</b> ${deviceName}</li>
-    //                 <li><b>Platform:</b> ${platform}</li>
-    //                 <li><b>Timezone:</b> ${timezone}</li>
-    //                 <li><b>Login Time:</b> ${session.createdAt}</li>
-    //             </ul>
-    //             <p>If this was you, you can safely ignore this message. Otherwise, please revoke your sessions immediately.</p>
-    //             <hr/>
-    //             <p style="font-size:12px; color:gray;">
-    //                 © ${new Date().getFullYear()} YourAppName. All rights reserved.
-    //             </p>
-    //         </body>
-    //     </html>
-    //     `
-    // });
 
   }
-
   // 5️⃣ Return token and user info
   return {
     token,
