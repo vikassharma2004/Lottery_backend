@@ -15,6 +15,7 @@ export const isAuthenticated = async (req, res, next) => {
       token = req.headers.authorization.split(" ")[1]; // <-- fixed extraction
     }
 
+    console.log("token", token);
     if (!token) {
       return next(new AppError("Session expired. Please login.", StatusCodes.UNAUTHORIZED));
     }
@@ -26,9 +27,10 @@ export const isAuthenticated = async (req, res, next) => {
     } catch (err) {
       return next(new AppError("Invalid or expired token.", StatusCodes.UNAUTHORIZED));
     }
+    console.log("decoded", decoded);
 
     // 3️⃣ Fetch user from DB
-    const user = await User.findById(decoded.id).select("-password");
+    const user = await User.findOne({email: decoded.email }).select("-password");
     if (!user) {
       return next(new AppError("User not found.", StatusCodes.UNAUTHORIZED));
     }

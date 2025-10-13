@@ -7,12 +7,13 @@ import "./src/automation/automation.js"
 dotenv.config();
 
 const PORT = process.env.PORT || 5000;
-
+  await connectDB();
 // Start server
 const server = app.listen(PORT, async() => {
     await connectDB();
   console.log(`✅ Server running on http://localhost:${PORT}`);
 });
+
 
 // Handle crashes gracefully
 process.on("uncaughtException", (err) => {

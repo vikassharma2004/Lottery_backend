@@ -12,6 +12,7 @@ import { errorHandler } from "./middleware/ErrorHandler.js";
 import cookieParser from "cookie-parser";
 import PaymentRouter from "./routes/paymentRoutes.js";
 import WithdrawRouter from "./routes/withdraw.route.js";
+import SessionRouter from "./routes/session.route.js";
 
 // Initialize app
 const app = express();
@@ -38,6 +39,7 @@ app.use("/api/report",ReportRouter)
 app.use("/api/analytics",analyticsRouter)
 app.use("/api/payment",PaymentRouter)
 app.use("/api/payment",WithdrawRouter)
+app.use("/api/sessions",SessionRouter)
 app.use(errorHandler)
 // 404 handler
 app.use((req, res) => {

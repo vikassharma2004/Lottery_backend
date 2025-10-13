@@ -12,3 +12,8 @@ export const getPaymentsByMonthController = catchAsyncError(async (req, res, nex
   const data = await getPaymentsByMonthService();
   res.status(200).json({ paymentsByMonth: data });
 });
+
+export const gettotalWithdrawalController = catchAsyncError(async (req, res, next) => {
+  const data = await gettotalWithdrawalService();
+  res.status(200).json({ totalWithdrawal: data });
+});

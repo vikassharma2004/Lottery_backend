@@ -1,5 +1,6 @@
 import {User} from "../models/User.model.js"
 import {Payment} from "../models/payment.model.js"
+import {WithdrawRequest} from "../models/withdraw.model.js"
 export const getPaidUsersCountService = async () => {
   const count = await User.countDocuments({ hasPaid: true });
   return count;
@@ -59,3 +60,15 @@ export const getPaymentsByMonthService = async () => {
 
   return formatted;
 };
+export const gettotalWithdrawalService = async () => {
+  const data = await WithdrawRequest.aggregate([
+    {
+      $group: {
+        _id: null,
+        totalAmount: { $sum: "$amount" },
+      },
+    },
+  ]);
+  return data[0]?.totalAmount || 0
+    
+}
