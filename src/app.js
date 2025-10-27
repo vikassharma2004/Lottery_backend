@@ -40,6 +40,7 @@ app.use("/api/analytics",analyticsRouter)
 app.use("/api/payment",PaymentRouter)
 app.use("/api/payment",WithdrawRouter)
 app.use("/api/sessions",SessionRouter)
+app.use("/api/withdraw",WithdrawRouter)
 app.use(errorHandler)
 // 404 handler
 app.use((req, res) => {

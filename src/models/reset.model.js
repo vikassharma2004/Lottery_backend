@@ -8,7 +8,7 @@ const resetPasswordSchema = new mongoose.Schema(
       required: true,
     },
     resetToken: {
-      type: String,
+      type:Number,
       required: true,
     },
     expiresAt: {

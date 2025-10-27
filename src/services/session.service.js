@@ -20,6 +20,4 @@ export const AbortSesssionService = async ({ deviceinfo, sessionId }) => {
     await session.deleteOne(sessionId)
 
     return { message: "session terminated" }
-
-
 }

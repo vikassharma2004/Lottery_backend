@@ -31,7 +31,9 @@ const userSchema = new mongoose.Schema({
   type: String,
   unique: true,
   sparse: true,
-  default: undefined
+  minLength: 8,
+  maxLength: 8,
+  default:null
 }
 ,
   userRole: {
@@ -59,10 +61,6 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ hasPaid: 1 });
 userSchema.index({ referralCode: 1 }, { unique: true, sparse: true });
-
-
-
-
 // Hash password before save
 userSchema.pre("save", async function (next) {
   if (this.isModified("password") && this.password) {

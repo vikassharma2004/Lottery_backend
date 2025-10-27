@@ -3,8 +3,18 @@ import { Otp } from "../models/otp.model.js";
 import { AppError } from "../middleware/ErrorHandler.js";
 import { sendEmail } from "../config/nodemailer.config.js";
 import { generateOTP } from "../utils/otp.js";
-export const CreateOtpService = async (email) => {
+export const CreateOtpService = async (email, type) => {
 
+  const UserExists = await User.findOne({ email });
+  if (!UserExists) {
+    throw new AppError("User not found", 404);
+  }
+  if(type === "resetPassword" && !UserExists.isVerified){
+    throw new AppError("Email not verified. Cannot reset password.", 400);
+  }
+  if(type === "verifyEmail" && UserExists.isVerified){
+    throw new AppError("Email already verified.", 400);
+  }
   // Delete all existing OTPs for this email
   await Otp.deleteMany({ email });
 
@@ -14,16 +24,14 @@ export const CreateOtpService = async (email) => {
   // Save OTP to DB
   const otp = await Otp.create({
     email,
+    type,
     otp: otpCode,
     expiresAt: new Date(Date.now() + 5 * 60 * 1000) // 5 minutes expiry
   });
-
-  // TODO: Send OTP via email/SMS
-  console.log(`OTP for ${email}: ${otpCode}`);
-    await sendEmail({
-        to: email,
-        subject: "OTP Verification - Valid for 5 Minutes",
-        html: `
+  await sendEmail({
+    to: email,
+    subject: "OTP Verification - Valid for 5 Minutes",
+    html: `
           <!DOCTYPE html>
           <html>
             <body>
@@ -44,25 +52,32 @@ export const CreateOtpService = async (email) => {
             </body>
           </html>
         `,
-      });
+  });
 
-  return {message:"otp send sucessfully"}
+  return { message: "otp send sucessfully" }
 };
-export const VerifyOtpService = async ({ email, otpCode }) => {
-  const otpRecord = await Otp.findOne({ email, otp: otpCode });
+export const VerifyOtpService = async ({ email, otpCode, type }) => {
+  console.log(email, otpCode, type);
+
+  // Include type in the query
+  const otpRecord = await Otp.findOne({ email});
 
   if (!otpRecord) throw new AppError("Invalid OTP", 400);
   if (otpRecord.expiresAt < new Date()) throw new AppError("OTP expired", 400);
 
-  // Mark user as verified
-  const user = await User.findById(otpRecord.userId);
+if(otpRecord.otp != otpCode) throw new AppError("Invalid otp", 400);
+if(otpRecord.type != type) throw new AppError("Invalid otp", 400);
+
+  // Find the user
+  const user = await User.findOne({ email: otpRecord.email });
   if (!user) throw new AppError("User not found", 404);
- 
+
+  // Mark as verified
   user.isVerified = true;
   await user.save();
 
-  // Delete OTP after successful verification
-  await Otp.deleteMany({ email });
+  // Delete all OTPs for this email and type
+  await Otp.deleteMany({ email, type });
 
   return { message: "OTP verified successfully", userId: user._id };
 };

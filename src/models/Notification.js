@@ -1,24 +1,25 @@
 import mongoose from "mongoose";
-
 const notificationSchema = new mongoose.Schema({
-  userId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "User", 
-    required: true 
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true
   },
 
-  type: { 
-    type: String, 
-    enum: ["referral", "payment", "ticket", "other"], 
-    default: "other" 
+  type: {
+    type: String,
+    enum: ["withdraw", "payment", "ticket", "other","referral","report"],
+    default: "other"
   },
 
-  message: { type: String, required: true }, // text to show user
-
-  relatedUser: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // optional, e.g. user who used referral
-
-  read: { type: Boolean, default: false }, // has the user seen this notification?
-
+  message: {
+    type: String,
+    required: true,
+    maxlength: 500
+  },
+  read: { type: Boolean, default: false },
 }, { timestamps: true });
+
+notificationSchema.index({ userId: 1, read: 1 });
 
 export const Notification = mongoose.model("Notification", notificationSchema);

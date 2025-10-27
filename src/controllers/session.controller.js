@@ -20,6 +20,7 @@ export const AbortSessionController = catchAsyncError(async (req,res) => {
 })
 export const GenerateSessionOtp = catchAsyncError(async () => {
     const otp = generateOTP()
+    
     await sendEmail({
         to: "",
         subject: "",

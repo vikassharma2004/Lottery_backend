@@ -1,25 +1,61 @@
+import { User } from "../models/User.model.js";
 import { WithdrawRequest } from "../models/withdraw.model.js";
-
+import { AppError } from "../middleware/ErrorHandler.js";
+import { catchAsyncError } from "../middleware/CatchAsyncError.js";
+import { Notification } from "../models/Notification.js";
+import { PaymentHistory } from "../models/Payment.History.js";
 // 1. User creates a withdraw request
-export const createWithdrawRequest = async (req, res, next) => {
-  try {
-    const { amount, currency } = req.body;
-
+export const createWithdrawRequest = catchAsyncError(async (req, res, next) => {
+ 
+    const { amount, upiId } = req.body;
+    const { userId } = req.user;
     if (!amount || amount <= 0) {
-      return res.status(400).json({ message: "Invalid withdraw amount" });
+      throw new AppError("Invalid withdraw amount", 400);
     }
+
+    if (!upiId || typeof upiId !== "string" || upiId.trim() === "") {
+      throw new AppError("Invalid UPI ID", 400);
+    }
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+    if (user.walletBalance < amount) {
+      throw new AppError("Insufficient wallet balance", 400);
+    }
+
+
 
     const request = await WithdrawRequest.create({
       requestedBy: req.user.userId,
       amount,
-      currency
+      upiId
     });
 
-    res.status(201).json({ success: true, data: request });
-  } catch (err) {
-    next(err);
-  }
-};
+   let  balanceAfter=user.walletBalance-amount;
+    const payment=await PaymentHistory.create({
+      user:userId,
+      amount,
+      method:"upi",
+      balanceBefore:user.walletBalance,
+      balanceAfter:balanceAfter,
+      status:"pending",
+      type:"withdrawal",
+      referenceId:request._id
+    })
+    await payment.save();
+
+    const notification = await Notification.create({
+      userId,
+      type: "withdraw",
+      message: `Your withdraw request of amount ${amount} has been created and is pending approval.`,
+    });
+
+    user.walletBalance -= amount;
+    await user.save();
+    await notification.save();
+    res.status(201).json({ message: "Withdraw request created", data: request });
+  });
 
 // 2. Admin fetches all withdraw requests
 export const getAllWithdrawRequests = async (req, res, next) => {
@@ -64,3 +100,8 @@ export const processWithdrawRequest = async (req, res, next) => {
     next(err);
   }
 };
+export const getUserWithdrawRequests = catchAsyncError(async (req, res, next) => {
+  const { userId } = req.user;
+  const requests = await WithdrawRequest.find({ requestedBy: userId }).sort({ createdAt: -1 });
+  res.status(200).json({ message: "Withdraw requests fetched", success: true, data: requests });
+});

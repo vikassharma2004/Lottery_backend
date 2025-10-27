@@ -1,12 +1,13 @@
-import otpGenerator from "otp-generator";
+
+
+import { randomInt } from 'crypto';
 
 export const generateOTP = (length = 6) => {
-  return otpGenerator.generate(length, {
-    digits: true,
-    alphabets: false,
-    upperCase: false,
-    specialChars: false
-  });
+  let otp = '';
+  for (let i = 0; i < length; i++) {
+    otp += String(randomInt(0, 10)); // 0..9
+  }
+  return otp;
 };
 
 export const generateReferralCode = (length = 8) => {

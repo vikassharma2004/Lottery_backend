@@ -6,40 +6,31 @@ import { Session } from "../models/session.model.js";
 // console.log(process.env.JWT_SECRET);
 export const isAuthenticated = async (req, res, next) => {
   try {
-    // 1️⃣ Get token from cookies or Authorization header
-    let token = null;
+    let token =
+      req.cookies?.token ||
+      (req.headers.authorization?.startsWith("Bearer ")
+        ? req.headers.authorization.split(" ")[1]
+        : null);
 
-    if (req.cookies?.token) {
-      token = req.cookies.token;
-    } else if (req.headers.authorization?.startsWith("Bearer ")) {
-      token = req.headers.authorization.split(" ")[1]; // <-- fixed extraction
-    }
+    if (!token)
+      return next(
+        new AppError("Session expired", StatusCodes.UNAUTHORIZED)
+      );
 
-    console.log("token", token);
-    if (!token) {
-      return next(new AppError("Session expired. Please login.", StatusCodes.UNAUTHORIZED));
-    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 2️⃣ Verify token
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (err) {
-      return next(new AppError("Invalid or expired token.", StatusCodes.UNAUTHORIZED));
-    }
-    console.log("decoded", decoded);
+    const user = await User.findById(decoded.id).select("-password");
+   
 
-    // 3️⃣ Fetch user from DB
-    const user = await User.findOne({email: decoded.email }).select("-password");
-    if (!user) {
-      return next(new AppError("User not found.", StatusCodes.UNAUTHORIZED));
-    }
 
-    if (user.isSuspended) {
-      return next(new AppError("Account suspended. Contact support.", StatusCodes.FORBIDDEN));
-    }
+    if (!user)
+      return next(new AppError("User no longer exists. Please login again.", StatusCodes.UNAUTHORIZED));
 
-    // 4️⃣ Attach user info to request
+    if (user.isSuspended)
+      return next(
+        new AppError("Account suspended. Contact support.", StatusCodes.FORBIDDEN)
+      );
+
     req.user = {
       userId: user._id,
       email: user.email,
@@ -50,9 +41,12 @@ export const isAuthenticated = async (req, res, next) => {
 
     next();
   } catch (err) {
-    next(new AppError("Authentication failed.", StatusCodes.UNAUTHORIZED));
+    return next(
+      new AppError("Invalid or expired token.", StatusCodes.UNAUTHORIZED)
+    );
   }
 };
+
 export const adminSessionMiddleware = async (req, res, next) => {
   try {
     // 1️⃣ Get token from cookies

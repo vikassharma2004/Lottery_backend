@@ -10,19 +10,23 @@ import { Otp } from "../models/otp.model.js";
 import { sendEmail } from "../config/nodemailer.config.js";
 import { Session } from "../models/session.model.js";
 import mongoose from "mongoose";
+import { CreateOtpService } from "./otp.service.js";
 
 
-export const loginService = async ({ email, password, deviceName, platform, timezone }) => {
+export const loginService = async ({ email, password, deviceName, platform, timezone,res,req }) => {
   // 1️⃣ Find user
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email })
   if (!user) throw new AppError("Account not found", 404);
-  if (!user.isVerified) throw new AppError("User email not verified", 403);
   if (user.isSuspended) throw new AppError("Account suspended. Contact support.", 403);
 
   // 2️⃣ Verify password
   const isPasswordCorrect = await user.comparePassword(password);
   if (!isPasswordCorrect) throw new AppError("Incorrect password", 401);
-
+  if (!user.isVerified) {
+    let type = "verifyEmail"
+    await CreateOtpService(email, type)
+   return res.status(400).json({ message: "Email not verified",email:user.email });
+  }
   // 3️⃣ Generate JWT token
   const token = await generateToken(user); // returns string token
 
@@ -70,102 +74,89 @@ export const loginService = async ({ email, password, deviceName, platform, time
 
   }
   // 5️⃣ Return token and user info
+  const safeUser = {
+    id: user._id,
+    email: user.email,
+    role: user.userRole,
+    referralCode: user.referralCode || null,
+    referralCount: user.referralCount,
+    successfulReferrals: user.successfulReferrals,
+    walletBalance: user.walletBalance,
+    isVerified: user.isVerified,
+    hasPaid: user.hasPaid,
+    ticketCount: user.ticketCount,
+    isSuspended: user.isSuspended,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
   return {
     token,
-    user: {
-      id: user._id,
-      email: user.email,
-      phone: user.phone,
-      role: user.userRole,
-    },
+    user: safeUser // convert mongoose doc to plain object
   };
 };
 
-
-
-
-
 export const RegisterService = async ({ email, password, referralCode }) => {
-  // Start a session
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    // Check if user already exists (inside session)
-    let user = await User.findOne({ email }).session(session);
-    if (user) {
-      throw new AppError("Account already exists", 409);
+    // 1️⃣ Check if user exists
+    const existingUser = await User.findOne({ email }).session(session);
+    if (existingUser) throw new AppError("Account already exists", 409);
+
+    // 2️⃣ Create new user
+    let user = await User.create([{ email, password, isVerified: false }], { session });
+    user = user[0];
+
+    // 3️⃣ Handle referral code
+    if (referralCode) {
+      const referrer = await User.findOne({ referralCode }).session(session);
+      if (!referrer) throw new AppError("Invalid referral code", 404);
+      if (!referrer.hasPaid) throw new AppError("Referrer has not paid", 400);
+
+      user.referredBy = referrer._id;
+      referrer.referralCount = (referrer.referralCount || 0) + 1;
+      await referrer.save({ session });
     }
 
-    if (!user) {
-      // Create new temporary user
-      user = await User.create(
-        [
-          { email, password, isVerified: false }
-        ],
-        { session } // make creation part of transaction
-      );
-      user = user[0]; // create returns an array when using array syntax
+    await user.save({ session });
 
-      // Assign referrer if referral code is provided
-      if (referralCode) {
-        const referrer = await User.findOne({ referralCode }).session(session);
-        if (!referrer) {
-          throw new AppError("Invalid referral code", 404);
-        }
-        if (!referrer.hasPaid) {
-          throw new AppError("Referrer has not paid", 400);
-        }
-        user.referredBy = referrer._id;
-        await user.save({ session });
-      }
-    }
-
-    // Delete all existing OTPs for this email
+    // 4️⃣ Remove existing OTPs
     await Otp.deleteMany({ email }).session(session);
 
-    // Generate new OTP
+    // 5️⃣ Generate new OTP
     const otpCode = generateOTP(6);
-
-    // Save OTP to DB
     await Otp.create(
       [
         {
           email,
           otp: otpCode,
+          type: "verifyEmail",
           userId: user._id,
           expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-        }
+        },
       ],
       { session }
     );
 
-    // Commit transaction
+    // 6️⃣ Commit transaction
     await session.commitTransaction();
-    session.endSession();
 
-    // Send OTP email **outside transaction**
-    console.log(`OTP for ${email}: ${otpCode}`);
+    // 7️⃣ Send email outside transaction
     await sendEmail({
       to: email,
       subject: "OTP Verification - Valid for 5 Minutes",
       html: `
-        <!DOCTYPE html>
         <html>
           <body>
             <h2>Email Verification</h2>
             <p>Hello,</p>
-            <p>
-              Please use the following One-Time Password (OTP) to verify your email
-              address. This code is <b>valid for only 5 minutes</b>.
-            </p>
+            <p>Please use the following OTP to verify your email. Valid for 5 minutes.</p>
             <h1>${otpCode}</h1>
-            <p>If you did not request this verification, please ignore this email.</p>
-            <br/>
-            <p>Thank you,<br/>The YourAppName Team</p>
+            <p>If you did not request this, ignore this email.</p>
             <hr/>
             <p style="font-size:12px; color:gray;">
-              © ${new Date().getFullYear()} Lottery. All rights reserved.
+              © ${new Date().getFullYear()} YourAppName. All rights reserved.
             </p>
           </body>
         </html>
@@ -174,31 +165,18 @@ export const RegisterService = async ({ email, password, referralCode }) => {
 
     return { success: true, message: "OTP sent successfully" };
   } catch (error) {
-    // Abort transaction on error
     await session.abortTransaction();
-    session.endSession();
     throw error;
+  } finally {
+    session.endSession();
   }
 };
 
 export const getProfile = async (userId) => {
-  const user = await User.findById(userId).populate("referredBy");
+  const user = await User.findById(userId).populate("referredBy", "email").select("-password");
   if (!user) throw new AppError("User not found", 404)
   return {
-    user: {
-
-
-      id: user._id,
-      email: user.email,
-      phone: user.phone,
-      role: user.userRole,
-      referredBy: user.referredBy,
-      isVerified: user.isVerified,
-      payment: user.hasPaid,
-      refferalCode: user.referralCode,
-      walletBalance: user.walletBalance,
-      ticket: user.ticketCount
-    }
+    user
   }
 }
 
@@ -217,20 +195,20 @@ export const LogoutService = async (res) => {
 export const generateResetToken = async (email) => {
   const user = await User.findOne({ email });
   if (!user) throw new AppError("User not found", 404);
-
+if(!user.isVerified){
+  throw new AppError("Email not verified. Cannot reset password.", 400);
+}
   // Delete previous unused tokens
   await ResetPassword.deleteMany({ userId: user._id, used: false });
 
   // Generate random token
-  const resetToken = crypto.randomBytes(32).toString("hex");
+  const resetToken = generateOTP(6);
 
-  // Hash token before saving
-  const hashedToken = await bcrypt.hash(resetToken, 10);
 
   // Save token to DB
   const resetRecord = await ResetPassword.create({
     userId: user._id,
-    resetToken: hashedToken,
+    resetToken,
     expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min expiry
   });
   await resetRecord.save();
@@ -241,48 +219,42 @@ export const generateResetToken = async (email) => {
     html: `
       <!DOCTYPE html>
       <html>
-        <body>
-          <h2>Password Reset Request</h2>
-          <p>
-            You requested to reset your password. This link is <b>valid for 10 minutes</b>.
-          </p>
+       <body>
+  <h2>Password Reset Request</h2>
+  
+  <p>
+    You requested to reset your password. Here is your OTP for verification:
+  </p>
 
-          <p>
-            Click the link below to reset your password:
-          </p>
+  <h3 style="color:#2b6cb0;">${resetToken}</h3>
 
-          <p>
-            <a href="${resetToken}">Reset Password</a>
-            <p>"${resetToken}"</p>
-          </p>
+  <p>
+    This OTP is <b>valid for 10 minutes</b>.
+  </p>
 
-          <p>
-            If you did not request a password reset, please ignore this email.
-          </p>
+  <p>
+    If you didn’t request a password reset, please ignore this email.
+  </p>
 
-          <hr/>
-          <p style="font-size:12px; color:gray;">
-            © ${new Date().getFullYear()} YourAppName. All rights reserved.
-          </p>
-        </body>
+  <hr/>
+  <p style="font-size:12px; color:gray;">
+    © ${new Date().getFullYear()} SpinShare. All rights reserved.
+  </p>
+</body>
+
       </html>
     `,
   });
   return { message: " Reset Email sent successfully" }
 }
-export const resetPassword = async ({ token, newPassword }) => {
-  console.log({ token, newPassword });
+export const resetPassword = async ({ token, newPassword,userId }) => {
   // 1. Find the reset record by token (unused)
-  const resetRecord = await ResetPassword.findOne({ used: false });
+  const resetRecord = await ResetPassword.findOne({ used: false,userId});
   if (!resetRecord) throw new AppError("Invalid or expired token", 400);
-  //   console.log(resetRecord);
 
-  // 2. Compare token (hashed in DB)
-  console.log(token, resetRecord.resetToken);
-  const isValid = await bcrypt.compare(token, resetRecord.resetToken);
-  if (!isValid) throw new AppError("Invalid or expired token", 400);
-  console.log(isValid);
-
+  if( resetRecord.resetToken != token){
+    throw new AppError("Invalid otp", 400);
+  }
   // 3. Check token expiry
   if (new Date() > resetRecord.expiresAt) {
     throw new AppError("Token expired", 400);
@@ -302,3 +274,13 @@ export const resetPassword = async ({ token, newPassword }) => {
 
   return { message: "Password reset successfully" };
 };
+export const changePassword = async ({ oldPassword, newPassword, userId }) => {
+
+  const user = await User.findById(userId);
+  if (!user) throw new AppError("User not found", 404);
+  const isPasswordCorrect = await user.comparePassword(oldPassword);
+  if (!isPasswordCorrect) throw new AppError("Incorrect password", 401);
+  user.password = newPassword;
+  await user.save();
+  return { message: "Password changed successfully" };
+}
