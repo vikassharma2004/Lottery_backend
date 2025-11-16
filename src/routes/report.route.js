@@ -9,7 +9,7 @@ import {
 const ReportRouter = express.Router();
 import {isAuthenticated,adminSessionMiddleware} from "../middleware/Authenticated.js";
 
-ReportRouter.route("/").post(isAuthenticated,createReportController);
+ReportRouter.route("/").post(createReportController);
 ReportRouter.route("/").get(adminSessionMiddleware,getAllReportsController);
 ReportRouter.route("/:id").get(adminSessionMiddleware,getReportByIdController);
 ReportRouter.route("/:id").put(adminSessionMiddleware,updateReportStatusController);

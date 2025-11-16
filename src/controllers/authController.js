@@ -16,7 +16,7 @@ export const Login = catchAsyncError(async (req, res, next) => {
     }
 
     const { deviceName, platform, timezone } = deviceInfo || {};
-    const { token, user } = await loginService({ email, password, deviceName, platform, timezone ,req,res});
+    const { token, user } = await loginService({ email, password, deviceName, platform, timezone, req, res });
 
     // await setTokenCookie(res, token);
 
@@ -40,46 +40,44 @@ export const Register = catchAsyncError(async (req, res, next) => {
         });
     }
     // 2. If valid, extract sanitized values
-    const { email, password, referralCode } = value;
-    await RegisterService({ email, password, referralCode });
-    return res.status(StatusCodes.CREATED).json({ message: "Account Created verify email" })
+    const { email, password, referralCode,name } = value;
+   const { success ,message}= await RegisterService({ email, password, referralCode,name });
+    return res.status(StatusCodes.CREATED).json({ message, success });
 })
 export const Logout = catchAsyncError(async (req, res, next) => {
-    const { message } = await LogoutService(res);
-    res.status(200).json({ message });
+    const { message, success } = await LogoutService(res);
+    res.status(200).json({ message,success });
 })
 export const ResetToken = catchAsyncError(async (req, res, next) => {
-    const { email} = req.body|| {}
+    const { email } = req.body || {}
 
     if (!email || req.body == "undefined") {
-      throw new AppError("Email is required", 400);
+        throw new AppError("Email is required", 400);
     }
     const { message } = await generateResetToken(email)
-    res.status(StatusCodes.OK).json({ message,success:true });
+    res.status(StatusCodes.OK).json({ message, success: true });
 })
 export const ResetPassword = catchAsyncError(async (req, res, next) => {
-    const { password,otp } = req.body;
-const userId=req.user?.userId;
+    const { password} = req.body;
+    const token=req.params.token;
     if (!req.body || Object.keys(req.body).length === 0 || !password) {
         return next(new AppError("Password is required", 400));
     }
 
-    if (!otp) {
-        return next(new AppError("OTP is required", 400));
-    }
+    
 
-    const { message } = await resetPassword({ token: otp, newPassword: password, userId });
-    res.status(StatusCodes.OK).json({ message });
+    const { message } = await resetPassword({ token, newPassword: password });
+    res.status(StatusCodes.OK).json({ message, success: true });
 });
 
 export const ChangePassword = catchAsyncError(async (req, res, next) => {
-  const { oldPassword, newPassword } = req.body;
-  const { userId } = req.user;
-   
+    const { oldPassword, newPassword } = req.body;
+    const { userId } = req.user;
+
     if (!oldPassword || !newPassword || !oldPassword.trim() || !newPassword.trim()) {
-    return next(new AppError("Password is required", 400));
-  }
-    if(newPassword.length <6){
+        return next(new AppError("Password is required", 400));
+    }
+    if (newPassword.length < 6) {
         return next(new AppError("password must be at least 6 characters long", 400));
     }
     const { message } = await changePassword({ oldPassword, newPassword, userId });

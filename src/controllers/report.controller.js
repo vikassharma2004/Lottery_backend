@@ -7,16 +7,15 @@ import {
     getReportByIdService,
     updateReportStatusService,
 } from "../services/report.service.js";
-
+import { Notification } from "../models/Notification.js";
 // User creates a report
 export const createReportController = catchAsyncError(async (req, res, next) => {
-    const { issueType, description } = req.body;
-    const { userId } = req.user;
+    const { issueType, description,email} = req.body;
 
     if (!description || !issueType) return next(new AppError("Description and issue type is required", 400));
 
-    const report = await createReportService({ userId, issueType, description });
-    res.status(201).json({ message: "Report created successfully", report });
+    const report = await createReportService({email, issueType, description });
+    res.status(201).json({ message: "issue reported",success: true});
 });
 
 // Admin/User gets all reports (with filters & pagination)

@@ -31,7 +31,6 @@ export const createWithdrawRequest = catchAsyncError(async (req, res, next) => {
       amount,
       upiId
     });
-
    let  balanceAfter=user.walletBalance-amount;
     const payment=await PaymentHistory.create({
       user:userId,
@@ -41,7 +40,8 @@ export const createWithdrawRequest = catchAsyncError(async (req, res, next) => {
       balanceAfter:balanceAfter,
       status:"pending",
       type:"withdrawal",
-      referenceId:request._id
+      referenceId:request._id,
+      withdrawId:request.withdrawId
     })
     await payment.save();
 

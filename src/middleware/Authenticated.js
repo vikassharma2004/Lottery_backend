@@ -33,6 +33,7 @@ export const isAuthenticated = async (req, res, next) => {
 
     req.user = {
       userId: user._id,
+      name:user.name,
       email: user.email,
       role: user.userRole,
       isVerified: user.isVerified,

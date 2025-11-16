@@ -1,7 +1,7 @@
 
 import { User } from "../models/User.model.js";
 import { AppError } from "../middleware/ErrorHandler.js";
-import { generateToken } from "../utils/auth.utils.js";
+import { generateToken, setTokenCookie } from "../utils/auth.utils.js";
 import { generateOTP } from "../utils/otp.js";
 import { ResetPassword } from "../models/reset.model.js";
 import bcrypt from "bcryptjs";
@@ -11,24 +11,28 @@ import { sendEmail } from "../config/nodemailer.config.js";
 import { Session } from "../models/session.model.js";
 import mongoose from "mongoose";
 import { CreateOtpService } from "./otp.service.js";
+import { Notification } from "../models/Notification.js";
 
 
-export const loginService = async ({ email, password, deviceName, platform, timezone,res,req }) => {
+export const loginService = async ({ email, password, deviceName, platform, timezone, res, req }) => {
   // 1️⃣ Find user
-  const user = await User.findOne({ email })
+
+  const user = await User.findOne({ email }).populate("referredBy", "email");
   if (!user) throw new AppError("Account not found", 404);
   if (user.isSuspended) throw new AppError("Account suspended. Contact support.", 403);
 
-  // 2️⃣ Verify password
+  // 2️⃣ Verify passwo
+  const total=await User.countDocuments({hasPaid:true})
   const isPasswordCorrect = await user.comparePassword(password);
   if (!isPasswordCorrect) throw new AppError("Incorrect password", 401);
   if (!user.isVerified) {
     let type = "verifyEmail"
     await CreateOtpService(email, type)
-   return res.status(400).json({ message: "Email not verified",email:user.email });
+    return res.status(400).json({ message: "Email not verified", email: user.email });
   }
   // 3️⃣ Generate JWT token
   const token = await generateToken(user); // returns string token
+await setTokenCookie(res, token);
 
   // 4️⃣ Create session ONLY for admin
   if (user.userRole === "admin") {
@@ -77,15 +81,18 @@ export const loginService = async ({ email, password, deviceName, platform, time
   const safeUser = {
     id: user._id,
     email: user.email,
+    name: user.name,
     role: user.userRole,
     referralCode: user.referralCode || null,
     referralCount: user.referralCount,
     successfulReferrals: user.successfulReferrals,
     walletBalance: user.walletBalance,
+    totalPaidUsers:total,
     isVerified: user.isVerified,
     hasPaid: user.hasPaid,
     ticketCount: user.ticketCount,
     isSuspended: user.isSuspended,
+    referredBy: user.referredBy ? user.referredBy.email :"",
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -95,7 +102,7 @@ export const loginService = async ({ email, password, deviceName, platform, time
   };
 };
 
-export const RegisterService = async ({ email, password, referralCode }) => {
+export const RegisterService = async ({ email, password, referralCode,name }) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -104,8 +111,9 @@ export const RegisterService = async ({ email, password, referralCode }) => {
     const existingUser = await User.findOne({ email }).session(session);
     if (existingUser) throw new AppError("Account already exists", 409);
 
+    
     // 2️⃣ Create new user
-    let user = await User.create([{ email, password, isVerified: false }], { session });
+    let user = await User.create([{ email, password, isVerified: false,name}], { session });
     user = user[0];
 
     // 3️⃣ Handle referral code
@@ -117,6 +125,11 @@ export const RegisterService = async ({ email, password, referralCode }) => {
       user.referredBy = referrer._id;
       referrer.referralCount = (referrer.referralCount || 0) + 1;
       await referrer.save({ session });
+      await Notification.create({
+        userId: referrer._id,
+        type:"referral",
+        message: `You have a new referral: ${user.email}`,
+      })
     }
 
     await user.save({ session });
@@ -163,10 +176,10 @@ export const RegisterService = async ({ email, password, referralCode }) => {
       `,
     });
 
-    return { success: true, message: "OTP sent successfully" };
+    return { success: true, message: "Account created successfully" };
   } catch (error) {
     await session.abortTransaction();
-    throw error;
+    throw new AppError(error.message, 500);
   } finally {
     session.endSession();
   }
@@ -174,9 +187,15 @@ export const RegisterService = async ({ email, password, referralCode }) => {
 
 export const getProfile = async (userId) => {
   const user = await User.findById(userId).populate("referredBy", "email").select("-password");
+  const totalPaidUsers = await User.countDocuments({hasPaid: true});
   if (!user) throw new AppError("User not found", 404)
+    // 🔹 Embed directly in user object (virtual field style)
+    const userWithStats = {
+      ...user.toObject(),
+      totalPaidUsers,
+    };
   return {
-    user
+    user: userWithStats
   }
 }
 
@@ -185,30 +204,36 @@ export const LogoutService = async (res) => {
   res.cookie("token", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "none",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 0,
   });
 
-  return { message: "Logged out successfully" };
+  return { message: "Logged out successfully",success:true };
 };
 
 export const generateResetToken = async (email) => {
   const user = await User.findOne({ email });
   if (!user) throw new AppError("User not found", 404);
-if(!user.isVerified){
-  throw new AppError("Email not verified. Cannot reset password.", 400);
-}
+  if (!user.isVerified) {
+    throw new AppError("Email not verified. Cannot reset password.", 400);
+  }
   // Delete previous unused tokens
-  await ResetPassword.deleteMany({ userId: user._id, used: false });
-
+  await ResetPassword.deleteMany({ email: user.email, used: false });
   // Generate random token
-  const resetToken = generateOTP(6);
+ // Generate random token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+     // Hash token before saving
+  const hashedToken = crypto
+  .createHash("sha256")
+  .update(resetToken)
+  .digest("hex");
+
 
 
   // Save token to DB
   const resetRecord = await ResetPassword.create({
-    userId: user._id,
-    resetToken,
+    email: user.email,
+    resetToken:hashedToken,
     expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min expiry
   });
   await resetRecord.save();
@@ -226,7 +251,7 @@ if(!user.isVerified){
     You requested to reset your password. Here is your OTP for verification:
   </p>
 
-  <h3 style="color:#2b6cb0;">${resetToken}</h3>
+  <h3 style="color:#2b6cb0;"> ${process.env.FRONTEND_URL}/auth/reset-password/${resetToken}</h3>
 
   <p>
     This OTP is <b>valid for 10 minutes</b>.
@@ -247,30 +272,46 @@ if(!user.isVerified){
   });
   return { message: " Reset Email sent successfully" }
 }
-export const resetPassword = async ({ token, newPassword,userId }) => {
-  // 1. Find the reset record by token (unused)
-  const resetRecord = await ResetPassword.findOne({ used: false,userId});
-  if (!resetRecord) throw new AppError("Invalid or expired token", 400);
+export const resetPassword = async ({ token, newPassword }) => {
+  // 1. Fetch reset record
+  const hashedToken = crypto
+  .createHash("sha256")
+  .update(token)
+  .digest("hex");
+  const resetRecord = await ResetPassword.findOne({
+    used: false,
+    resetToken: hashedToken,
+    expiresAt: { $gt: Date.now() }, // only fetch non-expired
+  });
 
-  if( resetRecord.resetToken != token){
-    throw new AppError("Invalid otp", 400);
+  if (!resetRecord) {
+    throw new AppError("Invalid or expired token", 400);
   }
-  // 3. Check token expiry
-  if (new Date() > resetRecord.expiresAt) {
-    throw new AppError("Token expired", 400);
+
+ 
+
+ 
+
+  // 3. Find the user
+  const user = await User.findOne({ email: resetRecord.email });
+
+  if (!user) {
+    throw new AppError("User not found", 404);
   }
 
-  // 4. Find user by userId in resetRecord
-  const user = await User.findById(resetRecord.userId);
-  if (!user) throw new AppError("User not found", 404);
-
-  // 5. Update password
-  user.password = newPassword; // hashed by pre-save hook
+  // 4. Update password (your pre-save hook will hash)
+  user.password = newPassword;
   await user.save();
 
-  // 6. Mark token as used
+  // 5. Mark reset token as used
   resetRecord.used = true;
   await resetRecord.save();
+
+  // 6. Notification
+  await Notification.create({
+    userId: user._id,
+    message: "Your password has been reset successfully.",
+  });
 
   return { message: "Password reset successfully" };
 };
@@ -282,5 +323,9 @@ export const changePassword = async ({ oldPassword, newPassword, userId }) => {
   if (!isPasswordCorrect) throw new AppError("Incorrect password", 401);
   user.password = newPassword;
   await user.save();
+   const notification = await Notification.create({
+        userId: user._id,
+        message: `Your password has been changed successfully.`,
+      });
   return { message: "Password changed successfully" };
 }

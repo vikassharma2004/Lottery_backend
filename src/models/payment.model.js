@@ -7,38 +7,43 @@ const paymentSchema = new mongoose.Schema(
     amount: { type: Number, required: true, min: 1 },
     currency: { type: String, default: "INR" },
 
-    razorpayOrderId: { type: String, required: true, unique: true },
-    razorpayPaymentId: { type: String, unique: true, sparse: true },
+    OrderId: { type: String, required: true, unique: true },
 
     status: { type: String, enum: ["pending", "success", "failed"], default: "pending" },
 
     // Optional: store payment method/details
     paymentMethod: { type: String }, // card, wallet, etc.
-    walletUsed: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
 
-// 🔥 Post-save hook: update user after successful payment
 paymentSchema.post("save", async function (doc) {
-  if (doc.status === "success") {
-    const User = mongoose.model("User");
-    const user = await User.findById(doc.userId);
+  if (doc.status !== "success") return;
 
-    if (user) {
-      // Generate referral code only after first successful payment
-      if (!user.referralCode) {
-        const code = generateReferralCode();
-        user.referralCode = code;
-      }
+  const User = mongoose.model("User");
+  const user = await User.findById(doc.userId);
 
-      user.hasPaid = true;
-      user.lastPaymentDate = new Date();
-      user.ticketCount += 1;
+  if (!user) return;
 
-      await user.save();
+  // Only generate referral code once, after first successful payment
+  if (!user.referralCode) {
+    let code;
+    let exists = true;
+
+    // Guarantee unique referral codes even under high concurrency
+    while (exists) {
+      code = generateReferralCode();
+      exists = await User.exists({ referralCode: code });
     }
-  }
-});
 
+    user.referralCode = code;
+  }
+
+  // Update payment-related flags
+  user.hasPaid = true;
+  user.lastPaymentDate = new Date();
+  user.ticketCount = (user.ticketCount || 0) + 1;
+
+  await user.save();
+});
 export const Payment = mongoose.model("Payment", paymentSchema);

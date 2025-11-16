@@ -3,8 +3,12 @@ import bcrypt from "bcryptjs";
 
 // ==================== USER SCHEMA ====================
 const userSchema = new mongoose.Schema({
-
-
+name: {
+  type: String,
+  required: true,
+  trim: true,
+  default:""
+},
   email: {
     type: String,
     required: true,
@@ -18,24 +22,21 @@ const userSchema = new mongoose.Schema({
     match: /^[0-9]{10}$/, // validate format
     default: undefined      // optional
   }
-
   ,
-
   password: {
     type: String,
     required: true,
     minLength: 6,
   },
-
- referralCode: {
+referralCode: {
   type: String,
-  unique: true,
-  sparse: true,
-  minLength: 8,
-  maxLength: 8,
-  default:null
-}
-,
+  sparse: true, // harmless to keep
+  minlength: 8,
+  maxlength: 8,
+  default: null,
+},
+
+
   userRole: {
     type: String,
     enum: ["user", "admin"], // only allows "user" or "admin"
@@ -60,7 +61,7 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ hasPaid: 1 });
-userSchema.index({ referralCode: 1 }, { unique: true, sparse: true });
+userSchema.index({ referralCode: 1 });
 // Hash password before save
 userSchema.pre("save", async function (next) {
   if (this.isModified("password") && this.password) {

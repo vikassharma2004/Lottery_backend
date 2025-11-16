@@ -1,9 +1,19 @@
 import { AppError } from "../middleware/ErrorHandler.js";
 import { ReportIssue } from "../models/report.model.js";
-
+import { User } from "../models/User.model.js";
+import { Notification } from "../models/Notification.js";
 // Create a new report
-export const createReportService = async ({ userId, issueType, description }) => {
-  const report = await ReportIssue.create({ userId, issueType, description });
+export const createReportService = async ({ email, issueType, description }) => {
+  const userExist=await User.findOne({email});
+  if(!userExist) throw new AppError("User not found", 404);
+  const userId = userExist._id;
+  const report = await ReportIssue.create({ userId,email:userExist.email, issueType, description });
+   const notification = await Notification.create({
+          userId:userExist._id,
+          message: `An issue has been reported.updates will be share on mail`,
+          type: "report"
+
+        });
   return report;
 };
 

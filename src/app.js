@@ -13,14 +13,26 @@ import cookieParser from "cookie-parser";
 import PaymentRouter from "./routes/paymentRoutes.js";
 import WithdrawRouter from "./routes/withdraw.route.js";
 import SessionRouter from "./routes/session.route.js";
+import NotificationRouter from "./routes/NotificationRoute.js";
+import userRouter from "./routes/user.route.js";
+import cashfree from "./config/cashfree.config.js";
 
 // Initialize app
 const app = express();
 
 // Middleware
+app.use("/webhook/cashfree", express.raw({ type: "application/json" }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors());
+app.use(
+  cors({
+    origin: true,               // ⚡ allows all origins dynamically
+    credentials: true,          // ⚡ allows cookies / authorization
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(helmet());
 app.use(compression());
 app.use(cookieParser());
@@ -33,14 +45,31 @@ app.get("/",(req,res)=>{
   res.status(200).json({ message: "Server is healthy" });
 })
 app.use("/api/auth",AuthRouter)
-app.use("/api/otp",OtpRouter)
+app.use("/api/otp",OtpRouter) 
 app.use("/api/admin",AdminRouter)
 app.use("/api/report",ReportRouter)
 app.use("/api/analytics",analyticsRouter)
 app.use("/api/payment",PaymentRouter)
-app.use("/api/payment",WithdrawRouter)
+app.use("/api/user",userRouter)
 app.use("/api/sessions",SessionRouter)
 app.use("/api/withdraw",WithdrawRouter)
+app.use("/api/Notification",NotificationRouter)
+app.post("/webhook/cashfree", (req, res) => {
+  try {
+    cashfree.PGVerifyWebhookSignature(
+      req.headers["x-webhook-signature"],
+      req.body,  // raw body
+      req.headers["x-webhook-timestamp"]
+    );
+
+    console.log("Webhook verified successfully");
+    res.status(200).send("OK");
+
+  } catch (err) {
+    console.log("❌ Signature verification failed:", err.message);
+    res.status(401).send("Invalid signature");
+  }
+});
 app.use(errorHandler)
 // 404 handler
 app.use((req, res) => {

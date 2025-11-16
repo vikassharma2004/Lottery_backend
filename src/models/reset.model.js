@@ -2,13 +2,12 @@ import mongoose from "mongoose";
 
 const resetPasswordSchema = new mongoose.Schema(
   {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+    email: {
+      type: String,
       required: true,
     },
     resetToken: {
-      type:Number,
+      type:String,
       required: true,
     },
     expiresAt: {
@@ -25,5 +24,6 @@ const resetPasswordSchema = new mongoose.Schema(
 
 // Optional TTL index to auto-delete expired tokens
 resetPasswordSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+resetPasswordSchema.index({ email: 1, resetToken: 1 ,used: 1});
 
 export const ResetPassword = mongoose.model("ResetPassword", resetPasswordSchema);
