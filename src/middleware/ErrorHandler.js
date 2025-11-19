@@ -39,9 +39,9 @@ export function errorHandler(err, req, res, next) {
 
   // Send response
   res.status(statusCode).json({
+    message,
     success: false,
     status: statusCode,
-    message,
     timestamp: new Date().toISOString()
   });
 }

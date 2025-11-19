@@ -4,58 +4,67 @@ import { AppError } from "../middleware/ErrorHandler.js";
 import { sendEmail } from "../config/nodemailer.config.js";
 import { generateOTP } from "../utils/otp.js";
 export const CreateOtpService = async (email, type) => {
+  try {
+    const UserExists = await User.findOne({ email,isSuspended:false });
+console.log(UserExists);
+    if (!UserExists) {
+      throw new AppError("User not found", 404);
+    }
+    if(!UserExists.isVerified){
+      throw new AppError("Please verify your email first", 400);
+    }
 
-  const UserExists = await User.findOne({ email });
-  if (!UserExists) {
-    throw new AppError("User not found", 404);
-  }
-  if(type === "resetPassword" && !UserExists.isVerified){
-    throw new AppError("Email not verified. Cannot reset password.", 400);
-  }
-  if(type === "verifyEmail" && UserExists.isVerified){
-    throw new AppError("Email already verified.", 400);
-  }
-  // Delete all existing OTPs for this email
-  await Otp.deleteMany({ email });
+    if (type === "resetPassword" && !UserExists.isVerified) {
+      throw new AppError("Email not verified. Cannot reset password.", 400);
+    }
 
-  // Generate new OTP
-  const otpCode = generateOTP(6);
+    if (type === "verifyEmail" && UserExists.isVerified) {
+      throw new AppError("Email already verified.", 400);
+    }
 
-  // Save OTP to DB
-  const otp = await Otp.create({
-    email,
-    type,
-    otp: otpCode,
-    expiresAt: new Date(Date.now() + 5 * 60 * 1000) // 5 minutes expiry
-  });
-  await sendEmail({
-    to: email,
-    subject: "OTP Verification - Valid for 5 Minutes",
-    html: `
-          <!DOCTYPE html>
-          <html>
-            <body>
-              <h2>Email Verification</h2>
-              <p>Hello,</p>
-              <p>
-                Please use the following One-Time Password (OTP) to verify your email
-                address. This code is <b>valid for only 5 minutes</b>.
-              </p>
-              <h1>${otpCode}</h1>
-              <p>If you did not request this verification, please ignore this email.</p>
+    // Delete all existing OTPs
+    await Otp.deleteMany({ email });
+
+    // Generate OTP
+    const otpCode = generateOTP(6);
+
+    // Save OTP to database
+    await Otp.create({
+      email,
+      type,
+      otp: otpCode,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 min expiry
+    });
+
+    // Send email
+    await sendEmail({
+      to: email,
+      subject: "OTP Verification - Valid for 5 Minutes",
+      html: `
+        <h2>Email Verification</h2>
+        <p>Your OTP is:</p>
+        <h1>${otpCode}</h1>
+        <p>This code expires in 5 minutes.</p>
+          <p>If you did not request this verification, please ignore this email.</p>
               <br/>
-              <p>Thank you,<br/>The YourAppName Team</p>
+              <p>Thank you,<br/>The SpinShare Team</p>
               <hr/>
               <p style="font-size:12px; color:gray;">
                 © ${new Date().getFullYear()} Lottery. All rights reserved.
               </p>
             </body>
-          </html>
-        `,
-  });
+      `,
+    });
 
-  return { message: "otp send sucessfully" }
+    return { message: "OTP sent successfully" };
+
+  } catch (error) {
+    console.error("OTP SERVICE ERROR:", error);
+    throw error; // IMPORTANT: pass to controller
+  }
 };
+
+
 export const VerifyOtpService = async ({ email, otpCode, type }) => {
   console.log(email, otpCode, type);
 

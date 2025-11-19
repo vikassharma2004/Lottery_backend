@@ -16,6 +16,8 @@ import SessionRouter from "./routes/session.route.js";
 import NotificationRouter from "./routes/NotificationRoute.js";
 import userRouter from "./routes/user.route.js";
 import cashfree from "./config/cashfree.config.js";
+import announcementRouter from "./routes/announcementRoutes.js";
+import paymentVerificationRouter from "./routes/paymentVerificationRoutes.js";
 
 // Initialize app
 const app = express();
@@ -54,6 +56,8 @@ app.use("/api/user",userRouter)
 app.use("/api/sessions",SessionRouter)
 app.use("/api/withdraw",WithdrawRouter)
 app.use("/api/Notification",NotificationRouter)
+app.use("/api/announcements",announcementRouter)
+app.use("/api/payment-verification", paymentVerificationRouter);
 app.post("/webhook/cashfree", (req, res) => {
   try {
     cashfree.PGVerifyWebhookSignature(

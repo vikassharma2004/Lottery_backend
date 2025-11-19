@@ -5,7 +5,7 @@ import { createWithdrawRequest, getAllWithdrawRequests, processWithdrawRequest }
 
 
 WithdrawRouter.route("/create-withdraw-request").post(isAuthenticated,createWithdrawRequest)
-WithdrawRouter.route("/withdraw-request-All").get(isAuthenticated,getAllWithdrawRequests)
+WithdrawRouter.route("/all").get(isAuthenticated,getAllWithdrawRequests)
 WithdrawRouter.route("/update-withdraw-request").patch(isAuthenticated,processWithdrawRequest)
 
 
