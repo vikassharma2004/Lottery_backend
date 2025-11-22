@@ -40,13 +40,13 @@ export const Register = catchAsyncError(async (req, res, next) => {
         });
     }
     // 2. If valid, extract sanitized values
-    const { email, password, referralCode,name } = value;
-   const { success ,message}= await RegisterService({ email, password, referralCode,name });
+    const { email, password, referralCode, name } = value;
+    const { success, message } = await RegisterService({ email, password, referralCode, name });
     return res.status(StatusCodes.CREATED).json({ message, success });
 })
 export const Logout = catchAsyncError(async (req, res, next) => {
     const { message, success } = await LogoutService(res);
-    res.status(200).json({ message,success });
+    res.status(200).json({ message, success });
 })
 export const ResetToken = catchAsyncError(async (req, res, next) => {
     const { email } = req.body || {}
@@ -58,13 +58,13 @@ export const ResetToken = catchAsyncError(async (req, res, next) => {
     res.status(StatusCodes.OK).json({ message, success: true });
 })
 export const ResetPassword = catchAsyncError(async (req, res, next) => {
-    const { password} = req.body;
-    const token=req.params.token;
+    const { password } = req.body;
+    const token = req.params.token;
     if (!req.body || Object.keys(req.body).length === 0 || !password) {
         return next(new AppError("Password is required", 400));
     }
 
-    
+
 
     const { message } = await resetPassword({ token, newPassword: password });
     res.status(StatusCodes.OK).json({ message, success: true });

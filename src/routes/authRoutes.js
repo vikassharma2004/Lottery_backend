@@ -6,7 +6,7 @@ const AuthRouter = express.Router();
 AuthRouter.route("/register").post(Register);
 AuthRouter.route("/login").post(Login);
 AuthRouter.route("/Profile").get(isAuthenticated,GetProfile);
-AuthRouter.route("/logout").post(isAuthenticated,Logout);
+AuthRouter.route("/logout").post(Logout);
 // Step 1: Send reset token via email
 AuthRouter.route("/send-reset-token").post(ResetToken);
 AuthRouter.route("/change-password").post(isAuthenticated,ChangePassword);

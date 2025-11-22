@@ -18,7 +18,7 @@ export const createReportService = async ({ email, issueType, description }) => 
 };
 
 // Get all reports with optional filters and pagination
-export const getAllReportsService = async ({ page = 1, limit = 10, issueType, status }) => {
+export const getAllReportsService = async ({ page = 1, limit = 20, issueType, status }) => {
   page = parseInt(page, 10);
   limit = parseInt(limit, 10);
 
@@ -27,7 +27,7 @@ export const getAllReportsService = async ({ page = 1, limit = 10, issueType, st
   if (status) query.status = status;
 
   const reports = await ReportIssue.find(query)
-    .populate("userId", "name email") // fetch user's name/email
+    .populate("userId", "name email")
     .skip((page - 1) * limit)
     .limit(limit)
     .sort({ createdAt: -1 });
@@ -35,11 +35,25 @@ export const getAllReportsService = async ({ page = 1, limit = 10, issueType, st
   const totalReports = await ReportIssue.countDocuments(query);
   const totalPages = Math.ceil(totalReports / limit);
 
+  const filtered = reports.map(r => ({
+    id: r._id,
+    email: r.email,
+    status: r.status,
+    issueType: r.issueType,
+    createdAt: r.createdAt
+  }));
+
   return {
-    reports,
-    pagination: { totalReports, totalPages, currentPage: page, pageSize: limit },
+    reports: filtered,
+    pagination: {
+      totalReports,
+      totalPages,
+      currentPage: page,
+      pageSize: limit,
+    },
   };
 };
+
 
 // Get a single report by ID
 export const getReportByIdService = async (reportId) => {

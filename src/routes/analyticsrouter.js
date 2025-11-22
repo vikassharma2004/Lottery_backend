@@ -1,18 +1,15 @@
 import express from "express";
-import { adminSessionMiddleware } from "../middleware/Authenticated.js";
+import {  isAuthenticated } from "../middleware/Authenticated.js";
 import {
-  getPaidUsersCountController,
-  getUsersByMonthController,
-  getPaymentsByMonthController,
+ 
+  getStats,
+  getAnalytics,
 } from "../controllers/Analytics.controller.js";
 
 const analyticsRouter = express.Router();
 
-// User analytics
-analyticsRouter.get("/users/paid-count", adminSessionMiddleware, getPaidUsersCountController);
-analyticsRouter.get("/users/by-month", adminSessionMiddleware, getUsersByMonthController);
 
-// Payment analytics
-analyticsRouter.get("/payments/by-month", adminSessionMiddleware, getPaymentsByMonthController);
+analyticsRouter.get("/stats", isAuthenticated, getStats);
+analyticsRouter.get("/", isAuthenticated ,getAnalytics);
 
 export default analyticsRouter;

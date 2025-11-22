@@ -7,11 +7,11 @@ import {
   updateReportStatusController,
 } from "../controllers/report.controller.js";
 const ReportRouter = express.Router();
-import {isAuthenticated,adminSessionMiddleware} from "../middleware/Authenticated.js";
+import {isAuthenticated} from "../middleware/Authenticated.js";
 
 ReportRouter.route("/").post(createReportController);
-ReportRouter.route("/").get(adminSessionMiddleware,getAllReportsController);
-ReportRouter.route("/:id").get(adminSessionMiddleware,getReportByIdController);
-ReportRouter.route("/:id").put(adminSessionMiddleware,updateReportStatusController);
-ReportRouter.route("/:id").delete(adminSessionMiddleware,deleteReportController);
+ReportRouter.route("/").get(isAuthenticated,getAllReportsController);
+ReportRouter.route("/:id").get(isAuthenticated,getReportByIdController);
+ReportRouter.route("/:id").put(isAuthenticated,updateReportStatusController);
+ReportRouter.route("/:id").delete(isAuthenticated,deleteReportController);
 export default ReportRouter;

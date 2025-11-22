@@ -6,14 +6,10 @@ import { generateOTP } from "../utils/otp.js";
 export const CreateOtpService = async (email, type) => {
   try {
     const UserExists = await User.findOne({ email,isSuspended:false });
-console.log(UserExists);
     if (!UserExists) {
       throw new AppError("User not found", 404);
     }
-    if(!UserExists.isVerified){
-      throw new AppError("Please verify your email first", 400);
-    }
-
+   
     if (type === "resetPassword" && !UserExists.isVerified) {
       throw new AppError("Email not verified. Cannot reset password.", 400);
     }

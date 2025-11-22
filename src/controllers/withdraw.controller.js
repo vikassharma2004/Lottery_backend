@@ -60,88 +60,98 @@ export const createWithdrawRequest = catchAsyncError(async (req, res, next) => {
 // 2. Admin fetches all withdraw requests
 export const getAllWithdrawRequests = catchAsyncError(async (req, res, next) => {
   try {
-    // ---------- ROLE CHECK ----------
     if (req.user.role !== "admin") {
       throw new AppError("Access denied. Admins only.", 403);
     }
 
-    // ---------- PAGINATION ----------
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    // ---------- FILTERS ----------
+    // ----------- Filters -----------
     const filters = {};
 
-    // STATUS filter
-    if (req.query.status) {
-      filters.status = req.query.status;
-    }
+    if (req.query.status) filters.status = req.query.status;
 
-    // withdrawId filter
     if (req.query.withdrawId) {
       filters.withdrawId = { $regex: req.query.withdrawId, $options: "i" };
     }
 
-    // ---------- DATE RANGE FILTER ----------
-    // ?startDate=2025-11-01 & endDate=2025-11-30  
     if (req.query.startDate || req.query.endDate) {
       filters.createdAt = {};
-
       if (req.query.startDate) {
         filters.createdAt.$gte = new Date(req.query.startDate);
       }
-
       if (req.query.endDate) {
-        // Ensure endDate includes the whole day
         const end = new Date(req.query.endDate);
         end.setHours(23, 59, 59, 999);
         filters.createdAt.$lte = end;
       }
     }
 
-    // ---------- EMAIL FILTER ----------
+    // Email filter → lookup userIds first
+    let userIds = null;
     if (req.query.email) {
-      filters["requestedBy.email"] = {
-        $regex: req.query.email,
-        $options: "i",
-      };
+      const users = await User.find(
+        { email: { $regex: req.query.email, $options: "i" } },
+        { _id: 1 }
+      ).lean();
+
+      userIds = users.map((u) => u._id);
+      filters.requestedBy = { $in: userIds };
     }
 
-    // ---------- QUERY ----------
-    const requests = await WithdrawRequest.find(filters)
-      .populate("requestedBy", "name email") // only name + email
-      .select("status amount withdrawId requestedBy createdAt") // only required fields
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    // ----------- Aggregation with $lookup (FASTER THAN POPULATE) -----------
+    const withdraws = await WithdrawRequest.aggregate([
+      { $match: filters },
 
-    // ---------- TOTAL COUNT ----------
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+
+      // Join user info
+      {
+        $lookup: {
+          from: "users",
+          localField: "requestedBy",
+          foreignField: "_id",
+          as: "user"
+        }
+      },
+      { $unwind: "$user" },
+
+      // Only select needed fields
+      {
+        $project: {
+          _id: 1,
+          amount: 1,
+          status: 1,
+          withdrawId: 1,
+          createdAt: 1,
+          "user.name": 1,
+          "user.email": 1,
+        }
+      }
+    ]);
+
+    // Count faster (no populate, no hydration)
     const total = await WithdrawRequest.countDocuments(filters);
-  // ---------- FLATTEN OUTPUT ----------
-    const formatted = requests.map((req) => ({
-      _id: req._id,
-      name: req.requestedBy?.name || "",
-      email: req.requestedBy?.email || "",
-      amount: req.amount,
-      status: req.status,
-      withdrawId: req.withdrawId,
-      createdAt: req.createdAt,
-    }));
 
     res.status(200).json({
-      message:"withdraw request fetched succesfully",
+      message: "Withdraw requests fetched successfully",
       success: true,
       page,
       limit,
       total,
       totalPages: Math.ceil(total / limit),
-      withdraws: formatted,
+      withdraws,
     });
+
   } catch (err) {
     next(err);
   }
-})
+});
+
 
 
 // 3. Admin approves/rejects a request
@@ -149,7 +159,14 @@ export const processWithdrawRequest = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status, note } = req.body; // status = "approved" | "rejected"
+    const { role } = req.user;
 
+if(!id){
+      return next(new AppError("withdraw id ID is required", 400));
+}
+    if (role !== "admin") {
+        return next(new AppError("Access denied. Admins only.", 403));
+    }
     if (!["approved", "rejected"].includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
     }

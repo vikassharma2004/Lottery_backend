@@ -3,12 +3,12 @@ import bcrypt from "bcryptjs";
 
 // ==================== USER SCHEMA ====================
 const userSchema = new mongoose.Schema({
-name: {
-  type: String,
-  required: true,
-  trim: true,
-  default:""
-},
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+    default: ""
+  },
   email: {
     type: String,
     required: true,
@@ -28,13 +28,13 @@ name: {
     required: true,
     minLength: 6,
   },
-referralCode: {
-  type: String,
-  sparse: true, // harmless to keep
-  minlength: 8,
-  maxlength: 8,
-  default: null,
-},
+  referralCode: {
+    type: String,
+    sparse: true, // harmless to keep
+    minlength: 8,
+    maxlength: 8,
+    default: null,
+  },
 
 
   userRole: {
@@ -59,9 +59,11 @@ referralCode: {
   isSuspended: { type: Boolean, default: false },
 
 }, { timestamps: true });
-userSchema.index({ email: 1 }, { unique: true });
+
 userSchema.index({ hasPaid: 1 });
-userSchema.index({ referralCode: 1 });
+userSchema.index({ referredBy: 1 ,isSuspended: 1});
+userSchema.index({ createdAt: 1 });
+
 // Hash password before save
 userSchema.pre("save", async function (next) {
   if (this.isModified("password") && this.password) {

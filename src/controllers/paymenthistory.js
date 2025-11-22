@@ -4,7 +4,7 @@ import { AppError } from "../middleware/ErrorHandler.js";
 
 export const GetPaymentHistoryController = catchAsyncError(async (req, res, next) => {
   const userId = req.user?.userId; // from auth middleware
-  if (!userId) throw new AppError("User not authenticated", 401);
+
 
   // Pagination params
   let { page = 1, limit = 10, status } = req.query;
@@ -50,17 +50,17 @@ export const GetPaymentHistoryController = catchAsyncError(async (req, res, next
   });
 });
 
-export const DeletePaymentHistoryController = catchAsyncError(async (req, res, next) => {
-  const userId = req.user?.userId;
-    const { historyId } = req.params;
-    if (!historyId) {
-        throw new AppError("Payment history ID is required", 400);
-    }
-    const paymentHistory = await PaymentHistory.findOne({ _id: historyId, user: userId });
-    if (!paymentHistory) {
-        throw new AppError("Payment history not found", 404);
-    }
-    paymentHistory.deleted = true;
-    await paymentHistory.save();
-    res.status(200).json({ message: "Payment history deleted successfully" });
-});
+// export const DeletePaymentHistoryController = catchAsyncError(async (req, res, next) => {
+//   const userId = req.user?.userId;
+//     const { historyId } = req.params;
+//     if (!historyId) {
+//         throw new AppError("Payment history ID is required", 400);
+//     }
+//     const paymentHistory = await PaymentHistory.findOne({ _id: historyId, user: userId });
+//     if (!paymentHistory) {
+//         throw new AppError("Payment history not found", 404);
+//     }
+//     paymentHistory.deleted = true;
+//     await paymentHistory.save();
+//     res.status(200).json({ message: "Payment history deleted successfully" });
+// });

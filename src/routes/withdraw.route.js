@@ -1,6 +1,6 @@
 import express from "express";
 const WithdrawRouter=express.Router()
-import { isAuthenticated } from "../middleware/Authenticated.js";
+import { isAuthenticated  } from "../middleware/Authenticated.js";
 import { createWithdrawRequest, getAllWithdrawRequests, processWithdrawRequest } from "../controllers/withdraw.controller.js";
 
 

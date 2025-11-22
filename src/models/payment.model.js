@@ -17,6 +17,9 @@ const paymentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+paymentSchema.index({ status: 1 });
+paymentSchema.index({ createdAt: -1 });
+
 paymentSchema.post("save", async function (doc) {
   if (doc.status !== "success") return;
 

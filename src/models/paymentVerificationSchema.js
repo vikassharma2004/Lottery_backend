@@ -1,9 +1,9 @@
 // models/PaymentVerification.js
 import mongoose from "mongoose";
 
+
 const paymentVerificationSchema = new mongoose.Schema(
   {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     email: { type: String, required: true },
     utrId: { type: String, required: true },
     proofImageUrl: { type: String, required: true },
@@ -17,4 +17,5 @@ const paymentVerificationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+paymentVerificationSchema.index({ status: 1,email:1,createdAt:-1 });
 export default mongoose.model("PaymentVerification", paymentVerificationSchema);

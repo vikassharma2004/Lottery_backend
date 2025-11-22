@@ -3,7 +3,12 @@ import Announcement from "../models/announcement.js";
 
 export const createAnnouncement = async (req, res) => {
   try {
+    const { role } = req.user;
+    if (role !== "admin") {
+      return next(new AppError("Access denied. Admins only.", 403));
+    }
     const { title, message, type } = req.body;
+
 
     if (!title || !message)
       return res.status(400).json({ message: "Title and message required" });
@@ -37,6 +42,10 @@ export const getActiveAnnouncements = async (req, res) => {
 };
 
 export const toggleAnnouncementStatus = async (req, res) => {
+  const { role } = req.user;
+  if (role !== "admin") {
+    return next(new AppError("Access denied. Admins only.", 403));
+  }
   try {
     const { id } = req.params;
 

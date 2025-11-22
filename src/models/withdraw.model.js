@@ -35,4 +35,9 @@ WithdrawRequestSchema.pre("save", async function (next) {
   }
   next();
 });
+WithdrawRequestSchema.index({ createdAt: -1 });
+WithdrawRequestSchema.index({ status: 1 });
+WithdrawRequestSchema.index({ requestedBy: 1 });
+// WithdrawRequestSchema.index({ withdrawId: 1 });
+
 export const WithdrawRequest = mongoose.model("WithdrawRequest", WithdrawRequestSchema);

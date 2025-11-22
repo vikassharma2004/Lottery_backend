@@ -8,7 +8,6 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { Otp } from "../models/otp.model.js";
 import { sendEmail } from "../config/nodemailer.config.js";
-import { Session } from "../models/session.model.js";
 import mongoose from "mongoose";
 import { CreateOtpService } from "./otp.service.js";
 import { Notification } from "../models/Notification.js";
@@ -22,7 +21,7 @@ export const loginService = async ({ email, password, deviceName, platform, time
   if (user.isSuspended) throw new AppError("Account suspended. Contact support.", 403);
 
   // 2️⃣ Verify passwo
-  const total=await User.countDocuments({hasPaid:true})
+  const total = await User.countDocuments({ hasPaid: true })
   const isPasswordCorrect = await user.comparePassword(password);
   if (!isPasswordCorrect) throw new AppError("Incorrect password", 401);
   if (!user.isVerified) {
@@ -32,24 +31,13 @@ export const loginService = async ({ email, password, deviceName, platform, time
   }
   // 3️⃣ Generate JWT token
   const token = await generateToken(user); // returns string token
-await setTokenCookie(res, token);
+  await setTokenCookie(res, token);
 
   // 4️⃣ Create session ONLY for admin
   if (user.userRole === "admin") {
-    const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days from now
+  
 
-    const session = await Session.create({
-      userId: user._id,
-      jwtToken: token,
-      ipAddress: "Unknown",
-      deviceName,
-      platform,
-      timezone,
-      expiresAt,
-      valid: true
-    });
-
-    await session.save();
+   
     await sendEmail({
       to: email,
       subject: "New Admin Login Detected",
@@ -64,12 +52,12 @@ await setTokenCookie(res, token);
                     <li><b>Device Name:</b> ${deviceName}</li>
                     <li><b>Platform:</b> ${platform}</li>
                     <li><b>Timezone:</b> ${timezone}</li>
-                    <li><b>Login Time:</b> ${session.createdAt}</li>
+                    <li><b>Login Time:</b> ${new Date().toLocaleString()}</li>
                 </ul>
                 <p>If this was you, you can safely ignore this message. Otherwise, please revoke your sessions immediately.</p>
                 <hr/>
                 <p style="font-size:12px; color:gray;">
-                    © ${new Date().getFullYear()} YourAppName. All rights reserved.
+                    © ${new Date().getFullYear()} SpinShare. All rights reserved.
                 </p>
             </body>
         </html>
@@ -87,12 +75,12 @@ await setTokenCookie(res, token);
     referralCount: user.referralCount,
     successfulReferrals: user.successfulReferrals,
     walletBalance: user.walletBalance,
-    totalPaidUsers:total,
+    totalPaidUsers: total,
     isVerified: user.isVerified,
     hasPaid: user.hasPaid,
     ticketCount: user.ticketCount,
     isSuspended: user.isSuspended,
-    referredBy: user.referredBy ? user.referredBy.email :"",
+    referredBy: user.referredBy ? user.referredBy.email : "",
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -102,7 +90,7 @@ await setTokenCookie(res, token);
   };
 };
 
-export const RegisterService = async ({ email, password, referralCode,name }) => {
+export const RegisterService = async ({ email, password, referralCode, name }) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -111,9 +99,9 @@ export const RegisterService = async ({ email, password, referralCode,name }) =>
     const existingUser = await User.findOne({ email }).session(session);
     if (existingUser) throw new AppError("Account already exists", 409);
 
-    
+
     // 2️⃣ Create new user
-    let user = await User.create([{ email, password, isVerified: false,name}], { session });
+    let user = await User.create([{ email, password, isVerified: false, name }], { session });
     user = user[0];
 
     // 3️⃣ Handle referral code
@@ -127,7 +115,7 @@ export const RegisterService = async ({ email, password, referralCode,name }) =>
       await referrer.save({ session });
       await Notification.create({
         userId: referrer._id,
-        type:"referral",
+        type: "referral",
         message: `You have a new referral: ${user.email}`,
       })
     }
@@ -169,7 +157,7 @@ export const RegisterService = async ({ email, password, referralCode,name }) =>
             <p>If you did not request this, ignore this email.</p>
             <hr/>
             <p style="font-size:12px; color:gray;">
-              © ${new Date().getFullYear()} YourAppName. All rights reserved.
+              © ${new Date().getFullYear()} SpinShare. All rights reserved.
             </p>
           </body>
         </html>
@@ -187,15 +175,32 @@ export const RegisterService = async ({ email, password, referralCode,name }) =>
 
 export const getProfile = async (userId) => {
   const user = await User.findById(userId).populate("referredBy", "email").select("-password");
-  const totalPaidUsers = await User.countDocuments({hasPaid: true});
+  const totalPaidUsers = await User.countDocuments();
   if (!user) throw new AppError("User not found", 404)
-    // 🔹 Embed directly in user object (virtual field style)
-    const userWithStats = {
-      ...user.toObject(),
-      totalPaidUsers,
-    };
+  // 🔹 Embed directly in user object (virtual field style)
+
+  const safeUser = {
+    id: user._id,
+    email: user.email,
+    name: user.name,
+    role: user.userRole,
+    referralCode: user.referralCode || null,
+    referralCount: user.referralCount,
+    successfulReferrals: user.successfulReferrals,
+    walletBalance: user.walletBalance,
+    totalPaidUsers: total,
+    isVerified: user.isVerified,
+    hasPaid: user.hasPaid,
+    ticketCount: user.ticketCount,
+    isSuspended: user.isSuspended,
+    referredBy: user.referredBy ? user.referredBy.email : "",
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    totalPaidUsers,
+  };
+
   return {
-    user: userWithStats
+    user: safeUser
   }
 }
 
@@ -208,7 +213,7 @@ export const LogoutService = async (res) => {
     maxAge: 0,
   });
 
-  return { message: "Logged out successfully",success:true };
+  return { message: "Logged out successfully", success: true };
 };
 
 export const generateResetToken = async (email) => {
@@ -220,20 +225,20 @@ export const generateResetToken = async (email) => {
   // Delete previous unused tokens
   await ResetPassword.deleteMany({ email: user.email, used: false });
   // Generate random token
- // Generate random token
-    const resetToken = crypto.randomBytes(32).toString("hex");
-     // Hash token before saving
+  // Generate random token
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  // Hash token before saving
   const hashedToken = crypto
-  .createHash("sha256")
-  .update(resetToken)
-  .digest("hex");
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
 
 
 
   // Save token to DB
   const resetRecord = await ResetPassword.create({
     email: user.email,
-    resetToken:hashedToken,
+    resetToken: hashedToken,
     expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min expiry
   });
   await resetRecord.save();
@@ -275,9 +280,9 @@ export const generateResetToken = async (email) => {
 export const resetPassword = async ({ token, newPassword }) => {
   // 1. Fetch reset record
   const hashedToken = crypto
-  .createHash("sha256")
-  .update(token)
-  .digest("hex");
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
   const resetRecord = await ResetPassword.findOne({
     used: false,
     resetToken: hashedToken,
@@ -288,9 +293,9 @@ export const resetPassword = async ({ token, newPassword }) => {
     throw new AppError("Invalid or expired token", 400);
   }
 
- 
 
- 
+
+
 
   // 3. Find the user
   const user = await User.findOne({ email: resetRecord.email });
@@ -323,9 +328,9 @@ export const changePassword = async ({ oldPassword, newPassword, userId }) => {
   if (!isPasswordCorrect) throw new AppError("Incorrect password", 401);
   user.password = newPassword;
   await user.save();
-   const notification = await Notification.create({
-        userId: user._id,
-        message: `Your password has been changed successfully.`,
-      });
+  const notification = await Notification.create({
+    userId: user._id,
+    message: `Your password has been changed successfully.`,
+  });
   return { message: "Password changed successfully" };
 }

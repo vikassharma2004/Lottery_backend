@@ -27,6 +27,10 @@ export const submitPaymentProof = async (req, res) => {
 
 
 export const getPendingPayments = async (req, res) => {
+    const { role } = req.user;
+            if (role !== "admin") {
+                return next(new AppError("Access denied. Admins only.", 403));
+            }
   try {
     const list = await PaymentVerification.find({ status: "pending" })
       .populate("user", "fullName email")
