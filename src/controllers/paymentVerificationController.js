@@ -175,8 +175,7 @@ export const verifyPayment = async (req, res) => {
           status: "completed",
           method: "upi",
           balanceBefore: 0,
-          balanceAfter: 0,
-          referenceId: `VERIF-${record._id}`,
+          balanceAfter: 0
         },
       ],
       { session }
