@@ -4,7 +4,7 @@ import { getAllUsers, getUserController, toggleSuspendUser } from "../controller
 const AdminRouter=express.Router()
 
 
-AdminRouter.route("/suspend-user").patch(isAuthenticated,toggleSuspendUser)
+AdminRouter.route("/users/suspend/:userId").patch(isAuthenticated,toggleSuspendUser)
 AdminRouter.route("/users/all").get(isAuthenticated,getAllUsers)
 AdminRouter.route("/user/:userId ").get(isAuthenticated,getUserController)
 

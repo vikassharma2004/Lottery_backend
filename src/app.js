@@ -3,7 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
 import cookieParser from "cookie-parser";
-
+import fileUpload from "express-fileupload";
 import AuthRouter from "./routes/authRoutes.js";
 import OtpRouter from "./routes/otpRoutes.js";
 import AdminRouter from "./routes/admin.route.js";
@@ -15,18 +15,23 @@ import NotificationRouter from "./routes/NotificationRoute.js";
 import userRouter from "./routes/user.route.js";
 import announcementRouter from "./routes/announcementRoutes.js";
 import paymentVerificationRouter from "./routes/paymentVerificationRoutes.js";
-
+import paymentsettings from "./routes/paymentsettingsroute.js"
 import { errorHandler } from "./middleware/ErrorHandler.js";
 import logger from "./config/logger.js";
 
 const app = express();
 
-// 0️⃣ RAW webhook (must be before JSON parser)
-app.use("/webhook/cashfree", express.raw({ type: "application/json" }));
+
 
 // 1️⃣ Standard Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(fileUpload({
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  useTempFiles: true,
+  tempFileDir: "/tmp/",
+}));
+
 app.use(
   cors({
     origin: true,
@@ -68,6 +73,7 @@ app.use("/api/withdraw", WithdrawRouter);
 app.use("/api/Notification", NotificationRouter);
 app.use("/api/announcements", announcementRouter);
 app.use("/api/payment-verification", paymentVerificationRouter);
+app.use("/api/payment-settings",paymentsettings);
 
 // 5️⃣ 404 Handler (AFTER ROUTES)
 app.use((req, res) => {

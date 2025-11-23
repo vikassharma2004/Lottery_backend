@@ -1,14 +1,19 @@
-// config/logger.js
-import pino from "pino";
+import winston from "winston";
 
-const logger = pino({
+const logger = winston.createLogger({
   level: "info",
-  transport: {
-    target: "pino-pretty",
-    options: {
-      colorize: true,
-      translateTime: "SYS:standard"
-    }
-  }
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.colorize(),
+    winston.format.printf(({ level, message, timestamp }) => {
+      return `[${timestamp}] ${level}: ${message}`;
+    })
+  ),
+  transports: [
+    new winston.transports.Console(), // ONLY console, no files
+  ],
 });
+
+
+
 export default logger;

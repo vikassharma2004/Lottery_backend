@@ -21,8 +21,6 @@ const PaymentSchema = new Schema({
   // snapshot of user's balance before and after this transaction (in smallest unit)
   balanceBefore: { type: Number, required: true },
   balanceAfter: { type: Number, required: true },
-  // Unique external reference (payment gateway id or idempotency key)
-  referenceId: { type: String, required: true, unique: true, index: true },
   withdrawId: { type: String, index: true,sparse: true },
   deleted: { type: Boolean, default: false, index: true },
 }, {

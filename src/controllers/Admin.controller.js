@@ -4,7 +4,7 @@ import { getAllUsersService, getUserByIdService, toggleSuspendUserService } from
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { User } from "../models/User.model.js";
 export const toggleSuspendUser = catchAsyncError(async (req, res, next) => {
-    const { userId } = req.user;
+    const { userId } = req.params;
     const { role } = req.user;
     if (role !== "admin") {
         return next(new AppError("Access denied. Admins only.", 403));

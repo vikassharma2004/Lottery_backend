@@ -12,7 +12,7 @@ const paymentVerificationRouter = express.Router();
 
 paymentVerificationRouter.route("/submit").post(isAuthenticated,submitPaymentProof);
 paymentVerificationRouter.route("/all").get(isAuthenticated,getPendingPayments);
-paymentVerificationRouter.route("/:id/verify").post(isAuthenticated,verifyPayment);
+paymentVerificationRouter.route("/:id").patch(isAuthenticated,verifyPayment);
 
 
 

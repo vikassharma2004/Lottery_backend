@@ -57,10 +57,23 @@ export const getAllReportsService = async ({ page = 1, limit = 20, issueType, st
 
 // Get a single report by ID
 export const getReportByIdService = async (reportId) => {
-  const report = await ReportIssue.findById(reportId).populate("userId", "email phone");
-  if (!report) throw new AppError("Report not found", 404);
-  return report;
+  const report = await ReportIssue.findById(reportId)
+    .populate("userId", "email phone");
+
+  if (!report) {
+    throw new AppError("Report not found", 404);
+  }
+
+  return {
+    id: report._id,
+    email: report.email || null,
+    description: report.description,
+    issueType: report.issueType,
+    status: report.status,
+    createdAt: report.createdAt,
+  };
 };
+
 
 // Update report status (e.g., mark as resolved/rejected)
 export const updateReportStatusService = async (reportId, status) => {
@@ -69,7 +82,11 @@ export const updateReportStatusService = async (reportId, status) => {
 
   report.status = status;
   if (status === "resolved" || status === "rejected") {
-    report.resolvedAt = new Date();
+    await Notification.create({
+      userId: report.userId,
+      message: `Your reported issue (${report.issueType}) has been ${status}.`,
+      type: "report",
+    });
   }
 
   await report.save();

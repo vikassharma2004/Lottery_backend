@@ -6,18 +6,14 @@ const paymentSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     amount: { type: Number, required: true, min: 1 },
     currency: { type: String, default: "INR" },
-
-    OrderId: { type: String, required: true, unique: true },
-
     status: { type: String, enum: ["pending", "success", "failed"], default: "pending" },
-
     // Optional: store payment method/details
     paymentMethod: { type: String }, // card, wallet, etc.
   },
   { timestamps: true }
 );
 
-paymentSchema.index({ status: 1 });
+paymentSchema.index({ status: 1,userId: 1 });
 paymentSchema.index({ createdAt: -1 });
 
 paymentSchema.post("save", async function (doc) {

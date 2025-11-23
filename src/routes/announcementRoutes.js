@@ -1,19 +1,18 @@
 import express from "express";
 import { 
   createAnnouncement,
-  getActiveAnnouncements,
-  toggleAnnouncementStatus
+  deleteAnnouncement,
+  getAnnouncements,
+  updateAnnouncement
 } from "../controllers/announcementController.js";
 import { isAuthenticated } from "../middleware/Authenticated.js";
 
 const announcementRouter = express.Router();
-
-
-
-
 announcementRouter.route("/").post(isAuthenticated,createAnnouncement)
-announcementRouter.route("/").get(getActiveAnnouncements);
-announcementRouter.route("/:id/toggle").post(isAuthenticated,toggleAnnouncementStatus)
+announcementRouter.route("/").get(isAuthenticated,getAnnouncements);
+announcementRouter.route("/:id").patch(isAuthenticated,updateAnnouncement);
+announcementRouter.route("/:id").delete(isAuthenticated,deleteAnnouncement);
+
 
 
 

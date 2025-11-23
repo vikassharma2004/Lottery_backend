@@ -48,21 +48,4 @@ cron.schedule("0 1 * * *", async () => {
   }
 });
 
-// ------------------- Cron Job 3: Keep Render server awake -------------------
-cron.schedule("*/14 * * * *", async () => {
-  try {
-    const response = await fetch("https://lottery-backend-1-a0sy.onrender.com");
 
-    if (response.ok) {
-      logger.info(" Ping successful (Render alive)");
-    } else {
-      logger.warn(`Ping failed with status: ${response.status}`);
-    }
-  } catch (err) {
-    logger.error({
-      message: "Error pinging Render server",
-      error: err.message,
-      stack: err.stack,
-    });
-  }
-});
