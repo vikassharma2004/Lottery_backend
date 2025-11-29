@@ -31,22 +31,22 @@ export const getAllReportsController = catchAsyncError(async (req, res, next) =>
 
 // Get a single report by ID
 export const getReportByIdController = catchAsyncError(async (req, res) => {
-  const { id } = req.params;
+    const { id } = req.params;
 
-  if (!id) {
-    throw new AppError("Report ID is required", 400);
-  }
+    if (!id) {
+        throw new AppError("Report ID is required", 400);
+    }
 
-  if (req.user.role !== "admin") {
-    throw new AppError("Access denied. Admins only.", 403);
-  }
+    if (req.user.role !== "admin") {
+        throw new AppError("Access denied. Admins only.", 403);
+    }
 
-  const report = await getReportByIdService(id);
+    const report = await getReportByIdService(id);
 
-  return res.status(200).json({
-    message: "Report fetched successfully",
-    report,
-  });
+    return res.status(200).json({
+        message: "Report fetched successfully",
+        report,
+    });
 });
 
 

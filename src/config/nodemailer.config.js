@@ -11,29 +11,30 @@ export const transporter = nodemailer.createTransport({
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
-  },
+  }, pool: true,          // keep 5 sockets alive
+  maxConnections: 5,
+  maxMessages: 100,
+  rateDelta: 20000,    // 20 s window
+  rateLimit: 5
 });
 
-export const sendEmail = async ({ to, subject, html, text }) => {
-  try {
-    // ✅ validate 'to' is defined
-    if (!to) {
-      logger.error("sendEmail called without 'to':", { to, subject });
-      throw new Error("No recipient defined");
-    }
-    logger.info("Sending email to:", to, subject);
-
-    const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM, // keep as plain string, no need for <>
+// email.js
+export function sendEmail({ to, subject, html, text }) {
+  if (!to) {
+    logger.error("sendEmailFast called without 'to'");
+    return; // silent return, or queue a retry job
+  }
+  transporter.sendMail(
+    {
+      from: process.env.SMTP_FROM,
       to,
       subject,
       html,
       text,
-    });
-
-    return info;
-  } catch (err) {
-    logger.error("Email send error:", err);
-    throw err;
-  }
-};
+    },
+    (err, info) => {
+      if (err) logger.error("Mail error", err);
+      else logger.info("Mail sent", info.messageId);
+    }
+  );
+}

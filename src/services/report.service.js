@@ -81,12 +81,18 @@ export const updateReportStatusService = async (reportId, status) => {
   if (!report) throw new AppError("Report not found", 404);
 
   report.status = status;
+
   if (status === "resolved" || status === "rejected") {
+    // Send notification
     await Notification.create({
       userId: report.userId,
       message: `Your reported issue (${report.issueType}) has been ${status}.`,
       type: "report",
     });
+
+    // DELETE report and return early
+    await ReportIssue.deleteOne({ _id: reportId });
+    return { message: "Report deleted after status update" };
   }
 
   await report.save();

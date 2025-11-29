@@ -10,13 +10,13 @@ import { deleteCloudinaryAsset } from "../utils/imageupload.js";
 import mongoose from "mongoose";
 export const submitPaymentProof = async (req, res) => {
   try {
-    const { email,haspaid } = req.user
+    const { email, haspaid } = req.user
     const { utrId, proofImageUrl, publicId } = req.body;
 
     if (!utrId)
       return res.status(400).json({ message: " UTR required" });
 
-    if(haspaid){
+    if (haspaid) {
       throw new AppError("payment already completed")
     }
 
@@ -128,6 +128,12 @@ export const verifyPayment = async (req, res) => {
     // REJECTED PAYMENT
     // -----------------------------------
     if (status === "rejected") {
+      user.fraudPaymentCount += 1;
+      // Suspend on 3rd strike
+      if (user.fraudPaymentCount >= 3) {
+        user.isSuspended = true;
+      }
+      await user.save();
       await Notification.create(
         [
           {
@@ -185,15 +191,33 @@ export const verifyPayment = async (req, res) => {
       [
         {
           userId: user._id,
-          message: "Payment approved successfully",
-          type: "payment",
+          message: "ticket purchase confirmed",
+          type: "ticket",
         },
       ],
       { session }
     );
 
-    await PaymentVerification.deleteOne({ _id: id }, { session });
 
+    await PaymentVerification.deleteOne({ _id: id }, { session });
+    if (user?.referredBy) {
+      let referredBy = await User.findById(user.referredBy).session(session);
+
+      referredBy.successfulReferrals = (referredBy.successfulReferrals || 0) + 1;
+      referredBy.walletBalance = (referredBy.walletBalance || 0) + 100;
+      await referredBy.save({ session });
+      await Notification.create(
+        [
+          {
+            userId: referredBy._id,
+            type: "referral",
+            message: `You have a earned amount of 100 `,
+          },
+        ],
+        { session }
+      )
+
+    }
     await session.commitTransaction();
 
     // OUTSIDE TRANSACTION

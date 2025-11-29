@@ -3,6 +3,32 @@ import { User } from "../models/User.model.js";
 import { Payment } from "../models/payment.model.js";
 import logger from "../config/logger.js"; // <-- USE THE DAMN LOGGER
 
+
+import { WithdrawRequest } from "../models/withdraw.model.js";
+
+
+cron.schedule("0 0 * * *", async () => {
+  const twoDaysAgo = new Date();
+  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
+  try {
+    const result = await WithdrawRequest.deleteMany({
+      status: "completed",
+      updatedAt: { $lt: twoDaysAgo },
+    });
+
+    logger.info(
+      `🧹 Deleted ${result.deletedCount} withdraw requests with status 'completed' older than 2 days`
+    );
+  } catch (err) {
+    logger.error({
+      message: "Error deleting completed withdraw requests",
+      error: err.message,
+      stack: err.stack,
+    });
+  }
+});
+
 // ------------------- Cron Job 1: Delete unverified users older than 2 days -------------------
 cron.schedule("0 0 * * *", async () => {
   const twoDaysAgo = new Date();

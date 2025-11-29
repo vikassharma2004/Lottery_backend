@@ -2,6 +2,7 @@ import { User } from "../models/User.model.js";
 import { AppError } from "../middleware/ErrorHandler.js";
 import { catchAsyncError } from "../middleware/CatchAsyncError.js";
 import { PaymentHistory } from "../models/Payment.History.js";
+import logger from "../config/logger.js";
 export const getReferralSummary = catchAsyncError(async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -13,13 +14,9 @@ export const getReferralSummary = catchAsyncError(async (req, res) => {
     if (!user) {
       throw new AppError("Token invalid", 404);
     }
+    let total=await User.find().countDocuments();
 
-    // ⛔ YOU WERE DOING IT WRONG
-    // referredBy IN YOUR MODEL = ObjectId of parent user
-    const referredUsers = await User.find({ referredBy: userId }).select(
-      "name email hasPaid createdAt"
-    );
-
+    
     const amountEarned = user.successfulReferrals * 100;
 
     return res.status(200).json({
@@ -31,11 +28,12 @@ export const getReferralSummary = catchAsyncError(async (req, res) => {
         totalReferrals: user.referralCount,       // correct field
         successfulReferrals: user.successfulReferrals,
         amountEarned,
-        referredUsers
+       totalUsers:total > 500 ? total : 500
+
       },
     });
   } catch (err) {
-    console.log(err);
+    logger.error(err);
     return res.status(500).json({
       success: false,
       message: "Server error",
@@ -68,7 +66,7 @@ export const getWalletInfo = catchAsyncError(async (req, res) => {
       },
     });
   } catch (err) {
-    console.log(err);
+    logger.error(err);
     return res.status(500).json({
       success: false,
       message: "Server error",

@@ -116,7 +116,7 @@ export const RegisterService = async ({ email, password, referralCode, name }) =
       await Notification.create({
         userId: referrer._id,
         type: "referral",
-        message: `You have a new referral: ${user.email}`,
+        message: `You have a new referral: ${user.name}`,
       })
     }
 
@@ -144,7 +144,7 @@ export const RegisterService = async ({ email, password, referralCode, name }) =
     await session.commitTransaction();
 
     // 7️⃣ Send email outside transaction
-    await sendEmail({
+    await  sendEmail({
       to: email,
       subject: "OTP Verification - Valid for 5 Minutes",
       html: `
@@ -175,7 +175,6 @@ export const RegisterService = async ({ email, password, referralCode, name }) =
 
 export const getProfile = async (userId) => {
   const user = await User.findById(userId).populate("referredBy", "email").select("-password");
-  const totalPaidUsers = await User.countDocuments();
   if (!user) throw new AppError("User not found", 404)
   // 🔹 Embed directly in user object (virtual field style)
 
@@ -188,15 +187,13 @@ export const getProfile = async (userId) => {
     referralCount: user.referralCount,
     successfulReferrals: user.successfulReferrals,
     walletBalance: user.walletBalance,
-    totalPaidUsers: total,
     isVerified: user.isVerified,
     hasPaid: user.hasPaid,
     ticketCount: user.ticketCount,
     isSuspended: user.isSuspended,
     referredBy: user.referredBy ? user.referredBy.email : "",
     createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-    totalPaidUsers,
+    updatedAt: user.updatedAt
   };
 
   return {

@@ -51,7 +51,10 @@ const userSchema = new mongoose.Schema({
   walletBalance: { type: Number, default: 0, min: 0 },
 
   isVerified: { type: Boolean, default: false },
-
+fraudPaymentCount: {
+  type: Number,
+  default: 0,
+},
   // 🚀 New fields
   hasPaid: { type: Boolean, default: false },  // true after first successful payment
   ticketCount: { type: Number, default: 0, min: 0 }, // total tickets purchased

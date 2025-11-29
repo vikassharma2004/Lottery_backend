@@ -91,36 +91,37 @@ export const GetProfile = catchAsyncError(async (req, res, next) => {
 
 export const verifytoken = catchAsyncError(async (req, res, next) => {
     try {
-        const authHeader = req.headers.authorization;
+        // 1️⃣ Check cookie FIRST (priority)
+        let token = req.cookies?.token;
 
-        // 1️⃣ Check header exists and starts correctly
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return res.status(401).json({
+        // 2️⃣ If not found in cookies, check Authorization header
+        if (!token) {
+            const authHeader = req.headers.authorization;
+
+            if (authHeader && authHeader.startsWith("Bearer ")) {
+                token = authHeader.split(" ")[1];
+            }
+        }
+
+        // 3️⃣ If still no token → reject request
+        if (!token) {
+            return res.status(StatusCodes.UNAUTHORIZED).json({
                 valid: false,
-                message: "No token provided or invalid format",
+                message: "Token not provided",
             });
         }
 
-        // 2️⃣ Extract token from "Bearer <token>"
-        const token = authHeader.split(" ")[1];
-        if (!token) {
-            return res
-                .status(StatusCodes.BAD_REQUEST)
-                .json({ valid: false, message: "Token not provided" });
-        }
-
-        // ✅ Verify JWT
+        // 4️⃣ Verify JWT
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // You can also attach it to req.user if needed
         req.user = decoded;
 
         return res.status(StatusCodes.OK).json({
             valid: true,
             message: "Token is valid",
         });
+
     } catch (err) {
-        // Handle invalid or expired token
         return res.status(StatusCodes.UNAUTHORIZED).json({
             valid: false,
             message:

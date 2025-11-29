@@ -160,58 +160,59 @@ export const getAllWithdrawRequests = catchAsyncError(async (req, res, next) => 
 export const processWithdrawRequest = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { status, note } = req.body; // status = "approved" | "rejected"
+    const { status, note } = req.body;
     const { role } = req.user;
 
-    if (!id) {
-      return next(new AppError("withdraw id ID is required", 400));
-    }
-    if (role !== "admin") {
-      return next(new AppError("Access denied. Admins only.", 403));
-    }
-    if (!["approved", "rejected"].includes(status)) {
-      return res.status(400).json({ message: "Invalid status" });
+    if (!id) return next(new AppError('Withdraw ID is required', 400));
+    if (role !== 'admin') return next(new AppError('Access denied. Admins only.', 403));
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
     }
 
+    // 1. get the request first (we need its withdrawId string)
     const request = await WithdrawRequest.findById(id);
-    if (!request) return res.status(404).json({ message: "Request not found" });
-
-    if (request.status !== "pending") {
-      return res.status(400).json({ message: "Request already processed" });
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+    if (request.status !== 'pending') {
+      return res.status(400).json({ message: 'Request already processed' });
     }
-    const user = await User.findById(request.requestedBy);
-    // If rejected, refund amount to user's wallet
 
-    if (status === "rejected") {
+    // 2. parallel reads now use the correct foreign key
+    const [user, paymentHistory] = await Promise.all([
+      User.findById(request.requestedBy),
+      PaymentHistory.findOne({ withdrawId: request.withdrawId }) // String field
+    ]);
+
+    if (!paymentHistory) return res.status(404).json({ message: 'Payment record not found' });
+
+    /* rest of your logic (wallet refund, notifications, etc.) stays identical */
+    if (status === 'rejected') {
       user.walletBalance += request.amount;
       await user.save();
-      await Notification.create({
-        userId: request.requestedBy,
-        message: `Your withdraw request of amount ${request.amount} has been rejected by admin. Reason: ${note}`,
-        type: "withdraw",
-      });
-      await Notification.create({
-        userId: request.requestedBy,
-        message: `Your withdraw amount has been refunded to your wallet.`,
-        type: "withdraw",
-      });
+      await Notification.insertMany([
+        {
+          userId: request.requestedBy,
+          message: `Your withdraw request of amount ${request.amount} has been rejected by admin. Reason: ${note}`,
+          type: 'withdraw'
+        },
+        {
+          userId: request.requestedBy,
+          message: 'Your withdraw amount has been refunded to your wallet.',
+          type: 'withdraw'
+        }
+      ]);
     } else {
       await Notification.create({
         userId: request.requestedBy,
         message: `Your withdraw request of amount ${request.amount} has been approved by admin.`,
-        type: "withdraw"
-      })
+        type: 'withdraw'
+      });
     }
-    await PaymentHistory.create({
-      user: user._id,
-      type: "withdrawal",
-      amount: request.amount,
-      method: "upi",
-      status: status === "approved" ? "completed" : "cancelled",
-      balanceBefore: user.walletBalance,
-      balanceAfter: user.walletBalance +request.amount
-    })
+
+    paymentHistory.status = status === 'approved' ? 'completed' : 'cancelled';
+    await paymentHistory.save();
+
     await request.deleteOne();
+
     res.status(200).json({ success: true, data: request });
   } catch (err) {
     next(err);
@@ -222,15 +223,12 @@ export const getWithdrawById = async (req, res) => {
     const { id } = req.params;
 
     const withdraw = await WithdrawRequest.findById(id)
-      .populate("requestedBy", "name email")
-      .populate("processedBy", "name email")
-      .select("-__v");
-
+      .select(" upiId amount");
     if (!withdraw) {
       return res.status(404).json({ message: "Withdraw request not found" });
     }
 
-    
+
 
     return res.status(200).json({
       withdraw
