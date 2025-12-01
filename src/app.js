@@ -34,7 +34,7 @@ app.use(fileUpload({
 
 app.use(
   cors({
-    origin: ["https://spinshare.in"],
+    origin:process.env.FRONTEND_URL,
     // origin:true,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
