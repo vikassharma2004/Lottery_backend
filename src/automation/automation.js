@@ -77,7 +77,7 @@ cron.schedule("0 1 * * *", async () => {
 
 // Run every 14 minutes
 cron.schedule("*/1 * * * *", async () => {
-  logger.info("Cron triggered: keep-alive ping started");
+  logger.info(`Keep-alive started at ${new Date().toISOString()} for ${process.env.BACKEND_URL}`);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000); // 8 sec timeout
