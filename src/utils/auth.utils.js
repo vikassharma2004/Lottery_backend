@@ -2,8 +2,8 @@
 import jwt from "jsonwebtoken";
 import { configDotenv } from "dotenv";
 import { AppError } from "../middleware/ErrorHandler.js";
-configDotenv({ path: "../../.env" })
-
+import logger from "../config/logger.js";
+configDotenv()
 
 export const generateToken = async (user, options = {}) => {
   if (!user || !user._id) throw new AppError("User object with _id is required");
@@ -32,6 +32,7 @@ export const setTokenCookie = (res, token) => {
     secure: isProduction,           // only true in production
     sameSite: isProduction ? "none" : "lax",  // mobile/web cross-origin only in prod
     path: "/",
+    domain:".spinshare.in",
     maxAge: 21 * 24 * 60 * 60 * 1000,
   });
 };
