@@ -1,11 +1,11 @@
 // utils/authUtils.js
 import jwt from "jsonwebtoken";
-import {  configDotenv } from "dotenv";
+import { configDotenv } from "dotenv";
 import { AppError } from "../middleware/ErrorHandler.js";
-configDotenv({path:"../../.env"})
+configDotenv({ path: "../../.env" })
 
 
-export const generateToken = async(user, options = {}) => {
+export const generateToken = async (user, options = {}) => {
   if (!user || !user._id) throw new AppError("User object with _id is required");
 
   const payload = {
@@ -17,7 +17,7 @@ export const generateToken = async(user, options = {}) => {
   };
 
   const token = await jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN 
+    expiresIn: process.env.JWT_EXPIRES_IN
   });
 
   return token;
@@ -32,6 +32,8 @@ export const setTokenCookie = (res, token) => {
     secure: isProduction,           // only true in production
     sameSite: isProduction ? "none" : "lax",  // mobile/web cross-origin only in prod
     maxAge: 21 * 24 * 60 * 60 * 1000, // 21 days
+    domain: ".spinshare.in",      // allows sharing cookie across subdomains
+    path: "/",
   });
 };
 

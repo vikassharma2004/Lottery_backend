@@ -46,7 +46,7 @@ app.use(cookieParser());
 
 // 2️⃣ Health Route
 app.get("/", (req, res) => {
-  res.status(200).json({ message: "Server is healthy" });
+  res.status(200).json({ message: "Server running successfully" });
 });
 
 // 3️⃣ 🔥 Performance Logger (MUST be before routes)

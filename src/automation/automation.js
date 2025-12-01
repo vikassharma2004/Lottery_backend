@@ -75,3 +75,35 @@ cron.schedule("0 1 * * *", async () => {
 });
 
 
+// Run every 14 minutes
+cron.schedule("*/1 * * * *", async () => {
+  logger.info("Cron triggered: keep-alive ping started");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000); // 8 sec timeout
+
+  try {
+    const res = await fetch(process.env.BACKEND_URL, { signal: controller.signal });
+
+    if (res.ok) {
+      logger.info("Keep-alive successful", {
+        url: process.env.BACKEND_URL,
+        time: new Date().toISOString(),
+      });
+    } else {
+      logger.warn("Keep-alive failed with non-200 status", {
+        status: res.status,
+        url: process.env.BACKEND_URL,
+      });
+    }
+  } catch (err) {
+    logger.error("Keep-alive error", {
+      message: err.message,
+      url:process.env.BACKEND_URL,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
+
