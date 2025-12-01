@@ -3,6 +3,7 @@ import { Otp } from "../models/otp.model.js";
 import { AppError } from "../middleware/ErrorHandler.js";
 import { sendEmail } from "../config/nodemailer.config.js";
 import { generateOTP } from "../utils/otp.js";
+import logger from "../config/logger.js";
 export const CreateOtpService = async (email, type) => {
   try {
     const UserExists = await User.findOne({ email,isSuspended:false });
@@ -29,7 +30,7 @@ export const CreateOtpService = async (email, type) => {
       email,
       type,
       otp: otpCode,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 min expiry
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min expiry
     });
 
     // Send email
@@ -40,13 +41,13 @@ export const CreateOtpService = async (email, type) => {
         <h2>Email Verification</h2>
         <p>Your OTP is:</p>
         <h1>${otpCode}</h1>
-        <p>This code expires in 5 minutes.</p>
+        <p>This code expires in 10 minutes.</p>
           <p>If you did not request this verification, please ignore this email.</p>
               <br/>
               <p>Thank you,<br/>The SpinShare Team</p>
               <hr/>
               <p style="font-size:12px; color:gray;">
-                © ${new Date().getFullYear()} Lottery. All rights reserved.
+                © ${new Date().getFullYear()} Spinshare. All rights reserved.
               </p>
             </body>
       `,
@@ -55,14 +56,14 @@ export const CreateOtpService = async (email, type) => {
     return { message: "OTP sent successfully" };
 
   } catch (error) {
-    console.error("OTP SERVICE ERROR:", error);
+    logger.error("OTP SERVICE ERROR:", error);
     throw error; // IMPORTANT: pass to controller
   }
 };
 
 
 export const VerifyOtpService = async ({ email, otpCode, type }) => {
-  console.log(email, otpCode, type);
+ 
 
   // Include type in the query
   const otpRecord = await Otp.findOne({ email});

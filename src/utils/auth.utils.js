@@ -26,13 +26,13 @@ export const generateToken = async (user, options = {}) => {
 
 export const setTokenCookie = (res, token) => {
   const isProduction = process.env.NODE_ENV === "production";
+
   res.cookie("token", token, {
     httpOnly: true,                 // ALWAYS true (don’t be reckless)
     secure: isProduction,           // only true in production
     sameSite: isProduction ? "none" : "lax",  // mobile/web cross-origin only in prod
-    maxAge: 21 * 24 * 60 * 60 * 1000, // 21 days
-    domain: ".spinshare.in",      // allows sharing cookie across subdomains
     path: "/",
+    maxAge: 21 * 24 * 60 * 60 * 1000,
   });
 };
 

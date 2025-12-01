@@ -34,10 +34,12 @@ app.use(fileUpload({
 
 app.use(
   cors({
-    origin: true,
+    origin: ["https://spinshare.in"],
+    // origin:true,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+   
+
   })
 );
 app.use(helmet());
